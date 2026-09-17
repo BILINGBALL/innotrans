@@ -470,6 +470,10 @@ export default function AdminPage() {
                 <span>创建时间</span>
                 <b>{fmt(detail.created_at)}</b>
               </div>
+              <div className="detail-item" style={{ gridColumn: '1 / -1' }}>
+                <span>备注</span>
+                <b style={{ whiteSpace: 'pre-wrap' }}>{detail.notes || '—'}</b>
+              </div>
             </div>
 
             {detail.email && (

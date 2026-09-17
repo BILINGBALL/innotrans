@@ -4,7 +4,7 @@ import PasswordGate from '../components/PasswordGate';
 import PhotoPicker from '../components/PhotoPicker';
 import { createLead } from '../api';
 
-const EMPTY = { name: '', phone: '', whatsapp: '', email: '', company: '' };
+const EMPTY = { name: '', phone: '', whatsapp: '', email: '', company: '', notes: '' };
 
 export default function CapturePage() {
   const [authorized, setAuthorized] = useState(
@@ -12,6 +12,7 @@ export default function CapturePage() {
   );
   const [form, setForm] = useState(EMPTY);
   const [photo, setPhoto] = useState(null);
+  const [sendEmail, setSendEmail] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [success, setSuccess] = useState(false);
   const [error, setError] = useState('');
@@ -48,7 +49,7 @@ export default function CapturePage() {
     setError('');
     setSuccess(false);
     try {
-      await createLead({ ...form, photo });
+      await createLead({ ...form, photo, send_email: sendEmail });
       setSuccess(true);
       setSubmitting(false);
       setTimeout(reset, 1800);
@@ -133,6 +134,29 @@ export default function CapturePage() {
                   onChange={set('company')}
                 />
               </label>
+
+              <label className="field">
+                <span className="field-label">备注</span>
+                <textarea
+                  className="input input-textarea"
+                  rows={3}
+                  placeholder="Notes（无长度限制）"
+                  value={form.notes}
+                  onChange={set('notes')}
+                />
+              </label>
+
+              <label className="field-check">
+                <input
+                  type="checkbox"
+                  checked={sendEmail}
+                  onChange={(e) => setSendEmail(e.target.checked)}
+                />
+                <span>发送跟进邮件（英文）</span>
+              </label>
+              {sendEmail && !form.email.trim() && (
+                <p className="hint">未填写邮箱，勾选发送邮件不会生效（不会报错，仅跳过发送）。</p>
+              )}
 
               {error && <p className="form-error">{error}</p>}
               {success && <p className="form-success">✓ 提交成功，已保存</p>}

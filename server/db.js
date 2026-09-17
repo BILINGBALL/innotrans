@@ -32,10 +32,14 @@ async function initDb() {
       whatsapp    TEXT,
       email       TEXT,
       company     TEXT,
+      notes       TEXT,
       photo_url   TEXT,
       created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
     )
   `);
+
+  // 兼容已存在的旧表：补充 notes 列（无长度限制）
+  await pool.query(`ALTER TABLE leads ADD COLUMN IF NOT EXISTS notes TEXT`);
 
   await pool.query(`
     CREATE TABLE IF NOT EXISTS email_logs (

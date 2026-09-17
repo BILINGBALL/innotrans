@@ -7,7 +7,7 @@ const { getPhotoBuffer } = require('./oss');
 
 const APP_BASE_URL = (process.env.APP_BASE_URL || '').replace(/\/+$/, '');
 const FROM_EMAIL = process.env.SMTP_USER;
-const SUBJECT = '感谢您参观 Sudelan 展台 / Thank you for visiting Sudelan';
+const SUBJECT = 'Thank you for visiting Sudelan at InnoTrans';
 
 const transporter = nodemailer.createTransport({
   host: process.env.SMTP_HOST,
@@ -43,17 +43,16 @@ function buildHtml({ name, photoCid, trackUrl }) {
   return `<!doctype html>
 <html>
 <body style="margin:0;padding:0;background:#f4f6fb;">
-<div style="max-width:560px;margin:0 auto;padding:28px 24px;font-family:-apple-system,'Segoe UI',Roboto,'PingFang SC','Microsoft YaHei',sans-serif;color:#1f2937;">
+<div style="max-width:560px;margin:0 auto;padding:28px 24px;font-family:-apple-system,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif;color:#1f2937;">
   <div style="font-size:30px;">🚆</div>
-  <h1 style="font-size:22px;margin:8px 0 4px;">感谢您参观 Sudelan 展台</h1>
-  <p style="color:#6b7280;margin:0 0 22px;font-size:14px;">Thank you for visiting Sudelan at InnoTrans</p>
+  <h1 style="font-size:22px;margin:8px 0 4px;">Thank you for visiting Sudelan</h1>
+  <p style="color:#6b7280;margin:0 0 22px;font-size:14px;">InnoTrans</p>
   <p style="font-size:15px;">Dear ${escapeHtml(name)},</p>
-  <p style="font-size:15px;line-height:1.7;">感谢您在 InnoTrans 展会莅临 Sudelan 展台。附件是我们的产品手册，欢迎查阅。如有任何问题，欢迎随时联系我们。</p>
-  <p style="font-size:15px;line-height:1.7;">Thank you for visiting Sudelan at InnoTrans. Please find our brochure attached. Feel free to reach out if you have any questions.</p>
+  <p style="font-size:15px;line-height:1.7;">Thank you for stopping by our booth at InnoTrans. Please find our brochure attached. If you have any questions, feel free to reach out &mdash; we'd be happy to help.</p>
   ${photo}
   <div style="margin-top:28px;padding-top:20px;border-top:1px solid #e5e7eb;font-size:14px;">
     <p style="margin:0;">Best regards,</p>
-    <p style="margin:4px 0 0;"><strong>Sudelan Team</strong></p>
+    <p style="margin:4px 0 0;"><strong>Brian | Sudelan Team</strong></p>
   </div>
   ${pixel}
 </div>

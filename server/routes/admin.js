@@ -45,7 +45,7 @@ router.get('/leads/export', authMiddleware, async (req, res) => {
   try {
     const { rows } = await pool.query('SELECT * FROM leads ORDER BY created_at DESC');
 
-    const header = ['ID', '姓名', '电话', 'WhatsApp', '邮箱', '公司', '照片链接', '创建时间'];
+    const header = ['ID', '姓名', '电话', 'WhatsApp', '邮箱', '公司', '备注', '照片链接', '创建时间'];
     const escape = (v) => `"${String(v ?? '').replace(/"/g, '""')}"`;
     const fmt = (d) => {
       const t = new Date(d);
@@ -61,6 +61,7 @@ router.get('/leads/export', authMiddleware, async (req, res) => {
         r.whatsapp,
         r.email,
         r.company,
+        r.notes,
         r.photo_url ? signUrl(r.photo_url, EXPORT_TTL) : '',
         fmt(r.created_at),
       ]

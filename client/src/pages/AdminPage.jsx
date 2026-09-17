@@ -38,17 +38,14 @@ export default function AdminPage() {
   const [search, setSearch] = useState('');
   const [notice, setNotice] = useState('');
 
-  // 标签页
   const [tab, setTab] = useState('leads');
   const [emails, setEmails] = useState([]);
   const [emailsLoading, setEmailsLoading] = useState(false);
   const [sendingId, setSendingId] = useState(null);
 
-  // 详情弹窗 / 大图预览
   const [detail, setDetail] = useState(null);
   const [previewUrl, setPreviewUrl] = useState(null);
 
-  // 补传照片弹窗
   const [appendId, setAppendId] = useState(null);
   const [appendPhoto, setAppendPhoto] = useState(null);
   const [appending, setAppending] = useState(false);
@@ -286,6 +283,7 @@ export default function AdminPage() {
 
               {notice && <p className="form-success">{notice}</p>}
 
+              {/* 桌面：表格 */}
               <div className="table-wrap">
                 <table className="table">
                   <thead>
@@ -328,10 +326,7 @@ export default function AdminPage() {
                         <td className="cell-time">{fmt(l.created_at)}</td>
                         <td>
                           <div className="row-actions" onClick={(e) => e.stopPropagation()}>
-                            <button
-                              className="btn btn-outline btn-sm"
-                              onClick={() => setDetail(l)}
-                            >
+                            <button className="btn btn-outline btn-sm" onClick={() => setDetail(l)}>
                               查看
                             </button>
                             <button
@@ -341,16 +336,10 @@ export default function AdminPage() {
                             >
                               {sendingId === l.id ? '发送中…' : '发邮件'}
                             </button>
-                            <button
-                              className="btn btn-outline btn-sm"
-                              onClick={() => openAppend(l.id)}
-                            >
+                            <button className="btn btn-outline btn-sm" onClick={() => openAppend(l.id)}>
                               {l.photo_url ? '换照片' : '补传照片'}
                             </button>
-                            <button
-                              className="btn btn-danger btn-sm"
-                              onClick={() => onDelete(l.id)}
-                            >
+                            <button className="btn btn-danger btn-sm" onClick={() => onDelete(l.id)}>
                               删除
                             </button>
                           </div>
@@ -366,6 +355,61 @@ export default function AdminPage() {
                     )}
                   </tbody>
                 </table>
+              </div>
+
+              {/* 手机：卡片 */}
+              <div className="lead-cards">
+                {filtered.map((l) => (
+                  <div key={l.id} className="lead-card" onClick={() => setDetail(l)}>
+                    <div className="lead-card-top">
+                      {l.photo_url ? (
+                        <img
+                          className="lead-card-photo"
+                          src={l.photo_url}
+                          alt={l.name}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setPreviewUrl(l.photo_url);
+                          }}
+                        />
+                      ) : (
+                        <span className="thumb-empty lead-card-photo">—</span>
+                      )}
+                      <div className="lead-card-body">
+                        <div className="lead-card-name">{l.name}</div>
+                        <div className="lead-card-meta">
+                          {l.company && <span>🏢 {l.company}</span>}
+                          {l.phone && <span>📞 {l.phone}</span>}
+                          {l.whatsapp && <span>💬 {l.whatsapp}</span>}
+                          {l.email && <span>📧 {l.email}</span>}
+                        </div>
+                      </div>
+                    </div>
+                    <div className="lead-card-footer">
+                      {l.email ? <EmailBadge status={l.last_email_status} /> : <span />}
+                      <span className="lead-card-time">{fmt(l.created_at)}</span>
+                    </div>
+                    <div className="lead-card-actions" onClick={(e) => e.stopPropagation()}>
+                      <button className="btn btn-outline btn-sm" onClick={() => setDetail(l)}>
+                        查看
+                      </button>
+                      <button
+                        className="btn btn-outline btn-sm"
+                        disabled={!l.email || sendingId === l.id}
+                        onClick={() => onSendEmail(l)}
+                      >
+                        {sendingId === l.id ? '发送中…' : '发邮件'}
+                      </button>
+                      <button className="btn btn-outline btn-sm" onClick={() => openAppend(l.id)}>
+                        {l.photo_url ? '换照片' : '补照片'}
+                      </button>
+                      <button className="btn btn-danger btn-sm" onClick={() => onDelete(l.id)}>
+                        删除
+                      </button>
+                    </div>
+                  </div>
+                ))}
+                {filtered.length === 0 && <div className="empty">暂无数据</div>}
               </div>
             </div>
           </>
@@ -384,6 +428,7 @@ export default function AdminPage() {
 
             {notice && <p className="form-success">{notice}</p>}
 
+            {/* 桌面：表格 */}
             <div className="table-wrap">
               <table className="table">
                 <thead>
@@ -418,6 +463,25 @@ export default function AdminPage() {
                   )}
                 </tbody>
               </table>
+            </div>
+
+            {/* 手机：卡片 */}
+            <div className="email-cards">
+              {emails.map((e) => (
+                <div key={e.id} className="email-card">
+                  <div className="email-card-info">
+                    <div className="email-card-to">{e.to_email}</div>
+                    <div className="email-card-lead">
+                      {e.lead_name ? `客户：${e.lead_name}` : '—'}
+                    </div>
+                  </div>
+                  <div className="email-card-right">
+                    <EmailBadge status={e.status} />
+                    <span className="email-card-time">{fmt(e.created_at)}</span>
+                  </div>
+                </div>
+              ))}
+              {emails.length === 0 && <div className="empty">暂无邮件记录</div>}
             </div>
           </div>
         )}

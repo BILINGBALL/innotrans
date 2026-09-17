@@ -379,6 +379,142 @@ body {
   cursor: pointer;
 }
 
+/* ===== 卡片视图（手机端） ===== */
+.lead-cards,
+.email-cards {
+  display: none;
+}
+
+@media (max-width: 640px) {
+  .table-wrap {
+    display: none;
+  }
+  .lead-cards,
+  .email-cards {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+}
+
+.lead-card {
+  background: #fff;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  box-shadow: var(--shadow-sm);
+  padding: 14px;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.lead-card-top {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+}
+
+.lead-card-photo {
+  width: 56px;
+  height: 56px;
+  object-fit: cover;
+  border-radius: 10px;
+  flex-shrink: 0;
+}
+
+.lead-card-body {
+  flex: 1;
+  min-width: 0;
+}
+
+.lead-card-name {
+  font-weight: 700;
+  font-size: 16px;
+}
+
+.lead-card-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  margin-top: 4px;
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.lead-card-meta span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.lead-card-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.lead-card-time {
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.lead-card-actions {
+  display: flex;
+  gap: 6px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border);
+}
+
+.lead-card-actions .btn {
+  flex: 1;
+  padding: 8px 6px;
+  font-size: 13px;
+}
+
+.email-card {
+  background: #fff;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  box-shadow: var(--shadow-sm);
+  padding: 12px 14px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.email-card-info {
+  min-width: 0;
+  flex: 1;
+}
+
+.email-card-to {
+  font-weight: 600;
+  font-size: 14px;
+  word-break: break-all;
+}
+
+.email-card-lead {
+  font-size: 12px;
+  color: var(--muted);
+  margin-top: 2px;
+}
+
+.email-card-right {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 4px;
+  flex-shrink: 0;
+}
+
+.email-card-time {
+  font-size: 12px;
+  color: var(--muted);
+}
+
 /* ===== 按钮 ===== */
 .btn {
   display: inline-flex;

@@ -101,14 +101,22 @@ export default function PhotoPicker({ photo, onCapture, onClear }) {
     start(next);
   };
 
-  // 原生分辨率 + 无损 PNG 拍摄
+  // 原生分辨率 + 无损 PNG 拍摄（宽度上限 1920，防止 4K 超大图）
   const capture = useCallback(() => {
     const video = videoRef.current;
     if (!video || !video.videoWidth) return;
+    const MAX = 1920;
+    let w = video.videoWidth;
+    let h = video.videoHeight;
+    if (w > MAX) {
+      const s = MAX / w;
+      w = MAX;
+      h = Math.round(h * s);
+    }
     const canvas = document.createElement('canvas');
-    canvas.width = video.videoWidth;
-    canvas.height = video.videoHeight;
-    canvas.getContext('2d').drawImage(video, 0, 0, canvas.width, canvas.height);
+    canvas.width = w;
+    canvas.height = h;
+    canvas.getContext('2d').drawImage(video, 0, 0, w, h);
     onCapture(canvas.toDataURL('image/png'));
     stop();
   }, [onCapture, stop]);

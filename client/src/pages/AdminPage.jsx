@@ -12,6 +12,7 @@ import {
   getEmailDefault,
   resendEmail,
 } from '../api';
+import { normalizePhone, stripPlus } from '../phone';
 
 function fmt(d) {
   if (!d) return '';
@@ -221,8 +222,8 @@ export default function AdminPage() {
   const startEdit = () => {
     setEditForm({
       name: detail.name || '',
-      phone: detail.phone || '',
-      whatsapp: detail.whatsapp || '',
+      phone: stripPlus(detail.phone),
+      whatsapp: stripPlus(detail.whatsapp),
       email: detail.email || '',
       company: detail.company || '',
       notes: detail.notes || '',
@@ -239,7 +240,12 @@ export default function AdminPage() {
     }
     setSaving(true);
     try {
-      const { lead } = await updateLead(token, detail.id, editForm);
+      const payload = {
+        ...editForm,
+        phone: normalizePhone(editForm.phone),
+        whatsapp: normalizePhone(editForm.whatsapp),
+      };
+      const { lead } = await updateLead(token, detail.id, payload);
       setDetail(lead);
       setEditMode(false);
       await load();
@@ -647,11 +653,17 @@ export default function AdminPage() {
                 </label>
                 <label className="field">
                   <span className="field-label">电话</span>
-                  <input className="input" value={editForm.phone} onChange={setEditField('phone')} />
+                  <div className="phone-field">
+                    <span className="phone-plus">+</span>
+                    <input className="input" value={editForm.phone} onChange={setEditField('phone')} />
+                  </div>
                 </label>
                 <label className="field">
                   <span className="field-label">WhatsApp</span>
-                  <input className="input" value={editForm.whatsapp} onChange={setEditField('whatsapp')} />
+                  <div className="phone-field">
+                    <span className="phone-plus">+</span>
+                    <input className="input" value={editForm.whatsapp} onChange={setEditField('whatsapp')} />
+                  </div>
                 </label>
                 <label className="field">
                   <span className="field-label">邮箱</span>

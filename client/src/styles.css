@@ -334,12 +334,33 @@ body {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 14px 16px;
+  margin: 16px 0;
 }
 
 @media (max-width: 560px) {
   .field-grid {
     grid-template-columns: 1fr;
   }
+}
+
+/* ===== 电话国家代码（固定 + 前缀，浮在输入框内） ===== */
+.phone-field {
+  position: relative;
+}
+
+.phone-plus {
+  position: absolute;
+  left: 14px;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 15px;
+  font-weight: 700;
+  color: #334155;
+  pointer-events: none;
+}
+
+.phone-field .input {
+  padding-left: 34px;
 }
 
 .form-footer {

@@ -4,6 +4,7 @@ import PasswordGate from '../components/PasswordGate';
 import PhotoPicker from '../components/PhotoPicker';
 import VoiceInput from '../components/VoiceInput';
 import { createLead } from '../api';
+import { normalizePhone } from '../phone';
 
 const EMPTY = { name: '', phone: '', whatsapp: '', email: '', company: '', notes: '' };
 
@@ -50,7 +51,13 @@ export default function CapturePage() {
     setError('');
     setSuccess(false);
     try {
-      await createLead({ ...form, photo, send_email: sendEmail });
+      await createLead({
+        ...form,
+        phone: normalizePhone(form.phone),
+        whatsapp: normalizePhone(form.whatsapp),
+        photo,
+        send_email: sendEmail,
+      });
       setSuccess(true);
       setSubmitting(false);
       setTimeout(reset, 1800);
@@ -81,32 +88,50 @@ export default function CapturePage() {
 
             <label className="field">
               <span className="field-label">
-                姓名 <i className="req">*</i>
+                姓名 Name <i className="req">*</i>
               </span>
               <input className="input" placeholder="Name" value={form.name} onChange={set('name')} />
             </label>
 
             <div className="field-grid">
               <label className="field">
-                <span className="field-label">电话</span>
-                <input className="input" type="tel" placeholder="Phone" value={form.phone} onChange={set('phone')} />
+                <span className="field-label">电话 Phone</span>
+                <div className="phone-field">
+                  <span className="phone-plus">+</span>
+                  <input
+                    className="input"
+                    type="tel"
+                    placeholder="Country code + number"
+                    value={form.phone}
+                    onChange={set('phone')}
+                  />
+                </div>
               </label>
               <label className="field">
                 <span className="field-label">WhatsApp</span>
-                <input className="input" type="tel" placeholder="WhatsApp" value={form.whatsapp} onChange={set('whatsapp')} />
+                <div className="phone-field">
+                  <span className="phone-plus">+</span>
+                  <input
+                    className="input"
+                    type="tel"
+                    placeholder="Country code + number"
+                    value={form.whatsapp}
+                    onChange={set('whatsapp')}
+                  />
+                </div>
               </label>
               <label className="field">
-                <span className="field-label">邮箱地址</span>
+                <span className="field-label">邮箱 Email</span>
                 <input className="input" type="email" placeholder="Email" value={form.email} onChange={set('email')} />
               </label>
               <label className="field">
-                <span className="field-label">公司名称</span>
+                <span className="field-label">公司 Company</span>
                 <input className="input" placeholder="Company" value={form.company} onChange={set('company')} />
               </label>
             </div>
 
             <label className="field">
-              <span className="field-label">备注</span>
+              <span className="field-label">备注 Notes</span>
               <textarea className="input input-textarea" rows={3} placeholder="Notes" value={form.notes} onChange={set('notes')} />
               <VoiceInput
                 onText={(t) => setForm((f) => ({ ...f, notes: (f.notes ? f.notes + ' ' : '') + t }))}

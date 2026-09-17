@@ -2,7 +2,7 @@ const express = require('express');
 const { pool } = require('../db');
 const { signToken, authMiddleware } = require('../auth');
 const { savePhotoFromDataUrl, signUrl } = require('../oss');
-const { logAndSendEmail } = require('../email');
+const { logAndSendEmail, getDefaultEmail } = require('../email');
 
 const router = express.Router();
 
@@ -169,7 +169,20 @@ router.put('/leads/:id/photo', authMiddleware, async (req, res) => {
   }
 });
 
-// 手动补发邮件
+// 获取某客户的默认邮件内容（编辑页预填用）
+router.get('/leads/:id/email-default', authMiddleware, async (req, res) => {
+  try {
+    const { rows } = await pool.query('SELECT * FROM leads WHERE id = $1', [req.params.id]);
+    if (rows.length === 0) return res.status(404).json({ error: '记录不存在' });
+    if (!rows[0].email) return res.status(400).json({ error: '该客户未填写邮箱' });
+    res.json(getDefaultEmail(rows[0]));
+  } catch (err) {
+    console.error('获取默认邮件失败:', err);
+    res.status(500).json({ error: '获取失败' });
+  }
+});
+
+// 手动补发邮件（可自定义 subject / body）
 router.post('/leads/:id/send-email', authMiddleware, async (req, res) => {
   try {
     const { rows } = await pool.query('SELECT * FROM leads WHERE id = $1', [req.params.id]);
@@ -177,7 +190,8 @@ router.post('/leads/:id/send-email', authMiddleware, async (req, res) => {
     const lead = rows[0];
     if (!lead.email) return res.status(400).json({ error: '该客户未填写邮箱，无法发送' });
 
-    const r = await logAndSendEmail(lead);
+    const { subject, body } = req.body || {};
+    const r = await logAndSendEmail(lead, { subject, body });
     if (r.ok) return res.json({ success: true, logId: r.logId });
     return res.status(500).json({ error: r.error || '发送失败' });
   } catch (err) {

@@ -9,6 +9,7 @@ import {
   deleteLead,
   updateLead,
   updateLeadPhoto,
+  getEmailDefault,
   resendEmail,
 } from '../api';
 
@@ -49,7 +50,6 @@ export default function AdminPage() {
   const [tab, setTab] = useState('leads');
   const [emails, setEmails] = useState([]);
   const [emailsLoading, setEmailsLoading] = useState(false);
-  const [sendingId, setSendingId] = useState(null);
 
   const [detail, setDetail] = useState(null);
   const [previewUrl, setPreviewUrl] = useState(null);
@@ -63,6 +63,13 @@ export default function AdminPage() {
   const [appendPhoto, setAppendPhoto] = useState(null);
   const [appending, setAppending] = useState(false);
   const [appendError, setAppendError] = useState('');
+
+  // 邮件编辑弹窗
+  const [composeLead, setComposeLead] = useState(null);
+  const [composeSubject, setComposeSubject] = useState('');
+  const [composeBody, setComposeBody] = useState('');
+  const [composing, setComposing] = useState(false);
+  const [emailSending, setEmailSending] = useState(false);
 
   const doLogin = async (e) => {
     e.preventDefault();
@@ -148,17 +155,35 @@ export default function AdminPage() {
     }
   };
 
-  const onSendEmail = async (l) => {
-    setSendingId(l.id);
+  const openCompose = async (l) => {
+    setComposeLead(l);
+    setComposeSubject('');
+    setComposeBody('');
+    setComposing(true);
     setNotice('');
     try {
-      await resendEmail(token, l.id);
-      setNotice(`已发送邮件给 ${l.email}`);
+      const { subject, body } = await getEmailDefault(token, l.id);
+      setComposeSubject(subject);
+      setComposeBody(body);
+    } catch (err) {
+      setNotice(err.message);
+      setComposeLead(null);
+    } finally {
+      setComposing(false);
+    }
+  };
+
+  const sendCompose = async () => {
+    setEmailSending(true);
+    try {
+      await resendEmail(token, composeLead.id, { subject: composeSubject, body: composeBody });
+      setNotice(`已发送邮件给 ${composeLead.email}`);
+      setComposeLead(null);
       await load();
     } catch (err) {
       setNotice(err.message);
     } finally {
-      setSendingId(null);
+      setEmailSending(false);
     }
   };
 
@@ -404,10 +429,10 @@ export default function AdminPage() {
                             </button>
                             <button
                               className="btn btn-outline btn-sm"
-                              disabled={!l.email || sendingId === l.id}
-                              onClick={() => onSendEmail(l)}
+                              disabled={!l.email}
+                              onClick={() => openCompose(l)}
                             >
-                              {sendingId === l.id ? '发送中…' : '发邮件'}
+                              发邮件
                             </button>
                             <button className="btn btn-outline btn-sm" onClick={() => openAppend(l.id)}>
                               {l.photo_url ? '换照片' : '补传照片'}
@@ -468,10 +493,10 @@ export default function AdminPage() {
                       </button>
                       <button
                         className="btn btn-outline btn-sm"
-                        disabled={!l.email || sendingId === l.id}
-                        onClick={() => onSendEmail(l)}
+                        disabled={!l.email}
+                        onClick={() => openCompose(l)}
                       >
-                        {sendingId === l.id ? '发送中…' : '发邮件'}
+                        发邮件
                       </button>
                       <button className="btn btn-outline btn-sm" onClick={() => openAppend(l.id)}>
                         {l.photo_url ? '换照片' : '补照片'}
@@ -694,10 +719,9 @@ export default function AdminPage() {
                   {detail.email && (
                     <button
                       className="btn btn-outline"
-                      disabled={sendingId === detail.id}
-                      onClick={() => onSendEmail(detail)}
+                      onClick={() => openCompose(detail)}
                     >
-                      {sendingId === detail.id ? '发送中…' : '📧 发送邮件'}
+                      📧 发送邮件
                     </button>
                   )}
                   <button className="btn btn-primary" onClick={startEdit}>
@@ -746,6 +770,59 @@ export default function AdminPage() {
                 onClick={savePhoto}
               >
                 {appending ? '上传中…' : '保存照片'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 邮件编辑弹窗 */}
+      {composeLead && (
+        <div className="modal-overlay" onClick={() => setComposeLead(null)}>
+          <div className="modal modal-compose" onClick={(e) => e.stopPropagation()}>
+            <div className="modal-header">
+              <h3 className="modal-title">发送邮件给 {composeLead.name}</h3>
+              <button className="modal-x" onClick={() => setComposeLead(null)}>
+                ✕
+              </button>
+            </div>
+
+            <label className="field">
+              <span className="field-label">收件人</span>
+              <input className="input" value={composeLead.email} disabled />
+            </label>
+
+            <label className="field">
+              <span className="field-label">主题</span>
+              <input
+                className="input"
+                value={composeSubject}
+                onChange={(e) => setComposeSubject(e.target.value)}
+              />
+            </label>
+
+            <label className="field">
+              <span className="field-label">正文</span>
+              <textarea
+                className="input input-textarea"
+                rows={10}
+                value={composeBody}
+                onChange={(e) => setComposeBody(e.target.value)}
+              />
+            </label>
+
+            {composing && <p className="hint">加载默认内容中…</p>}
+
+            <div className="modal-actions">
+              <button className="btn btn-outline" onClick={() => setComposeLead(null)}>
+                取消
+              </button>
+              <button
+                className="btn btn-primary"
+                disabled={composing || emailSending || !composeBody.trim()}
+                onClick={sendCompose}
+              >
+                {emailSending ? '发送中…' : '发送邮件'}
               </button>
             </div>
           </div>

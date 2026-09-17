@@ -554,6 +554,21 @@ body {
   font-weight: 600;
 }
 
+/* ===== 邮件编辑弹窗 ===== */
+.modal-compose {
+  max-width: 640px;
+}
+
+.modal-compose .field {
+  margin-bottom: 14px;
+}
+
+.modal-compose .input[disabled] {
+  background: #f1f5f9;
+  color: var(--muted);
+  cursor: not-allowed;
+}
+
 /* ===== 按钮 ===== */
 .btn {
   display: inline-flex;

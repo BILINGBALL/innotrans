@@ -56,10 +56,17 @@ export function updateLeadPhoto(token, id, photo) {
   }).then(handle);
 }
 
-export function resendEmail(token, leadId) {
+export function getEmailDefault(token, leadId) {
+  return fetch(`${API_BASE}/api/admin/leads/${leadId}/email-default`, {
+    headers: { Authorization: `Bearer ${token}` },
+  }).then(handle);
+}
+
+export function resendEmail(token, leadId, data = {}) {
   return fetch(`${API_BASE}/api/admin/leads/${leadId}/send-email`, {
     method: 'POST',
-    headers: { Authorization: `Bearer ${token}` },
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+    body: JSON.stringify(data),
   }).then(handle);
 }
 

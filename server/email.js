@@ -7,7 +7,7 @@ const { getPhotoBuffer } = require('./oss');
 
 const APP_BASE_URL = (process.env.APP_BASE_URL || '').replace(/\/+$/, '');
 const FROM_EMAIL = process.env.SMTP_USER;
-const SUBJECT = 'Thank you for visiting Sudelan at InnoTrans';
+const DEFAULT_SUBJECT = 'Thank you for visiting Sudelan at InnoTrans';
 
 const transporter = nodemailer.createTransport({
   host: process.env.SMTP_HOST,
@@ -30,7 +30,33 @@ function brochurePath() {
   return candidates.find((p) => fs.existsSync(p)) || null;
 }
 
-function buildHtml({ name, photoCid, trackUrl }) {
+// 默认邮件正文（纯文本，可编辑）
+function defaultBody(name) {
+  return `Dear ${name},
+
+Thank you for stopping by our booth at InnoTrans. Please find our brochure attached. If you have any questions, feel free to reach out — we'd be happy to help.
+
+Best regards,
+Brian | Sudelan Team`;
+}
+
+// 获取某客户的默认邮件内容
+function getDefaultEmail(lead) {
+  return { subject: DEFAULT_SUBJECT, body: defaultBody(lead.name) };
+}
+
+// 纯文本正文 → HTML（空行分段，换行转 <br/>）
+function plainToHtml(text) {
+  return String(text || '')
+    .split(/\n\n+/)
+    .map(
+      (p) =>
+        `<p style="font-size:15px;line-height:1.7;margin:0 0 12px;">${escapeHtml(p.trim()).replace(/\n/g, '<br/>')}</p>`
+    )
+    .join('');
+}
+
+function buildHtml({ body, photoCid, trackUrl }) {
   const photo = photoCid
     ? `<div style="text-align:center;margin:16px 0;">
          <img src="cid:${photoCid}" alt="photo" style="max-width:360px;width:100%;border-radius:10px;" />
@@ -45,15 +71,9 @@ function buildHtml({ name, photoCid, trackUrl }) {
 <body style="margin:0;padding:0;background:#f4f6fb;">
 <div style="max-width:560px;margin:0 auto;padding:28px 24px;font-family:-apple-system,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif;color:#1f2937;">
   <div style="font-size:30px;">🚆</div>
-  <h1 style="font-size:22px;margin:8px 0 4px;">Thank you for visiting Sudelan</h1>
-  <p style="color:#6b7280;margin:0 0 22px;font-size:14px;">InnoTrans</p>
-  <p style="font-size:15px;">Dear ${escapeHtml(name)},</p>
-  <p style="font-size:15px;line-height:1.7;">Thank you for stopping by our booth at InnoTrans. Please find our brochure attached. If you have any questions, feel free to reach out &mdash; we'd be happy to help.</p>
+  <div style="height:16px;"></div>
+  ${plainToHtml(body)}
   ${photo}
-  <div style="margin-top:28px;padding-top:20px;border-top:1px solid #e5e7eb;font-size:14px;">
-    <p style="margin:0;">Best regards,</p>
-    <p style="margin:4px 0 0;"><strong>Brian | Sudelan Team</strong></p>
-  </div>
   ${pixel}
 </div>
 </body>
@@ -78,7 +98,10 @@ async function getPhotoAttachment(key) {
   }
 }
 
-async function sendGreetingEmail(lead, trackId) {
+async function sendGreetingEmail(lead, trackId, opts = {}) {
+  const subject = opts.subject || DEFAULT_SUBJECT;
+  const body = opts.body || defaultBody(lead.name);
+
   const attachments = [];
   let photoCid = null;
 
@@ -91,8 +114,6 @@ async function sendGreetingEmail(lead, trackId) {
   const brochure = brochurePath();
   if (brochure) {
     attachments.push({ filename: 'Sudelan-Brochure.pdf', path: brochure });
-  } else {
-    console.warn('提示：未找到 Sudelan-Brochure.pdf，本次邮件不含附件');
   }
 
   const trackUrl = APP_BASE_URL ? `${APP_BASE_URL}/api/email/open/${trackId}` : null;
@@ -100,26 +121,27 @@ async function sendGreetingEmail(lead, trackId) {
   await transporter.sendMail({
     from: `"Sudelan" <${FROM_EMAIL}>`,
     to: lead.email,
-    subject: SUBJECT,
-    html: buildHtml({ name: lead.name, photoCid, trackUrl }),
+    subject,
+    html: buildHtml({ body, photoCid, trackUrl }),
     attachments,
   });
 }
 
-// 记录并发送邮件（自动发信 / 后台补发共用）
-async function logAndSendEmail(lead) {
+// 记录并发送邮件（自动发信用默认内容，后台补发可传自定义 subject/body）
+async function logAndSendEmail(lead, opts = {}) {
   if (!lead || !lead.email) return { skipped: true };
 
   const trackId = crypto.randomUUID();
+  const subject = opts.subject || DEFAULT_SUBJECT;
   const ins = await pool.query(
     `INSERT INTO email_logs (lead_id, to_email, subject, track_id, status)
      VALUES ($1, $2, $3, $4, 'sending') RETURNING id`,
-    [lead.id, lead.email, SUBJECT, trackId]
+    [lead.id, lead.email, subject, trackId]
   );
   const logId = ins.rows[0].id;
 
   try {
-    await sendGreetingEmail(lead, trackId);
+    await sendGreetingEmail(lead, trackId, opts);
     await pool.query(`UPDATE email_logs SET status='sent' WHERE id=$1`, [logId]);
     return { ok: true, logId };
   } catch (e) {
@@ -132,4 +154,4 @@ async function logAndSendEmail(lead) {
   }
 }
 
-module.exports = { logAndSendEmail, transporter };
+module.exports = { logAndSendEmail, getDefaultEmail, transporter };

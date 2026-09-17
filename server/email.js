@@ -23,7 +23,11 @@ function escapeHtml(s) {
 }
 
 function brochurePath() {
-  return path.join(__dirname, '..', 'Sudelan-Brochure.pdf');
+  const candidates = [
+    path.join(__dirname, 'Sudelan-Brochure.pdf'),       // server/ 目录
+    path.join(__dirname, '..', 'Sudelan-Brochure.pdf'), // 项目根目录
+  ];
+  return candidates.find((p) => fs.existsSync(p)) || null;
 }
 
 function buildHtml({ name, photoCid, trackUrl }) {
@@ -85,10 +89,11 @@ async function sendGreetingEmail(lead, trackId) {
     attachments.push(photoAtt);
   }
 
-  if (fs.existsSync(brochurePath())) {
-    attachments.push({ filename: 'Sudelan-Brochure.pdf', path: brochurePath() });
+  const brochure = brochurePath();
+  if (brochure) {
+    attachments.push({ filename: 'Sudelan-Brochure.pdf', path: brochure });
   } else {
-    console.warn('提示：根目录未找到 Sudelan-Brochure.pdf，本次邮件不含附件');
+    console.warn('提示：未找到 Sudelan-Brochure.pdf，本次邮件不含附件');
   }
 
   const trackUrl = APP_BASE_URL ? `${APP_BASE_URL}/api/email/open/${trackId}` : null;

@@ -43,6 +43,19 @@ export function updateLeadPhoto(token, id, photo) {
   }).then(handle);
 }
 
+export function resendEmail(token, leadId) {
+  return fetch(`${API_BASE}/api/admin/leads/${leadId}/send-email`, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${token}` },
+  }).then(handle);
+}
+
+export function fetchEmailLogs(token) {
+  return fetch(`${API_BASE}/api/admin/emails`, {
+    headers: { Authorization: `Bearer ${token}` },
+  }).then(handle);
+}
+
 // 带鉴权的 CSV 导出，用 Blob 下载
 export async function exportLeads(token) {
   const res = await fetch(`${API_BASE}/api/admin/leads/export`, {

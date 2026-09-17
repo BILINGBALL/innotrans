@@ -2,6 +2,7 @@ const express = require('express');
 const { pool } = require('../db');
 const { signToken, authMiddleware } = require('../auth');
 const { savePhotoFromDataUrl, signUrl } = require('../oss');
+const { logAndSendEmail } = require('../email');
 
 const router = express.Router();
 
@@ -19,10 +20,15 @@ router.post('/login', (req, res) => {
   res.status(401).json({ error: '密码错误' });
 });
 
-// 客户列表（照片返回签名 URL）
+// 客户列表（照片返回签名 URL，附带最近一次邮件状态）
 router.get('/leads', authMiddleware, async (req, res) => {
   try {
-    const { rows } = await pool.query('SELECT * FROM leads ORDER BY created_at DESC');
+    const { rows } = await pool.query(
+      `SELECT l.*,
+         (SELECT e.status FROM email_logs e WHERE e.lead_id = l.id ORDER BY e.created_at DESC LIMIT 1) AS last_email_status
+       FROM leads l
+       ORDER BY l.created_at DESC`
+    );
     const leads = rows.map((r) => ({
       ...r,
       photo_url: r.photo_url ? signUrl(r.photo_url, VIEW_TTL) : null,
@@ -102,6 +108,39 @@ router.put('/leads/:id/photo', authMiddleware, async (req, res) => {
   } catch (err) {
     console.error('更新照片失败:', err);
     res.status(500).json({ error: '更新失败' });
+  }
+});
+
+// 手动补发邮件
+router.post('/leads/:id/send-email', authMiddleware, async (req, res) => {
+  try {
+    const { rows } = await pool.query('SELECT * FROM leads WHERE id = $1', [req.params.id]);
+    if (rows.length === 0) return res.status(404).json({ error: '记录不存在' });
+    const lead = rows[0];
+    if (!lead.email) return res.status(400).json({ error: '该客户未填写邮箱，无法发送' });
+
+    const r = await logAndSendEmail(lead);
+    if (r.ok) return res.json({ success: true, logId: r.logId });
+    return res.status(500).json({ error: r.error || '发送失败' });
+  } catch (err) {
+    console.error('发送邮件失败:', err);
+    res.status(500).json({ error: '发送失败' });
+  }
+});
+
+// 邮件记录列表
+router.get('/emails', authMiddleware, async (req, res) => {
+  try {
+    const { rows } = await pool.query(
+      `SELECT e.*, l.name AS lead_name
+       FROM email_logs e
+       LEFT JOIN leads l ON l.id = e.lead_id
+       ORDER BY e.created_at DESC`
+    );
+    res.json({ emails: rows });
+  } catch (err) {
+    console.error('查询邮件记录失败:', err);
+    res.status(500).json({ error: '查询失败' });
   }
 });
 

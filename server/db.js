@@ -36,7 +36,25 @@ async function initDb() {
       created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
     )
   `);
-  console.log('✅ 数据表 leads 已就绪');
+
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS email_logs (
+      id          SERIAL PRIMARY KEY,
+      lead_id     INTEGER REFERENCES leads(id) ON DELETE CASCADE,
+      to_email    TEXT NOT NULL,
+      subject     TEXT,
+      track_id    TEXT,
+      status      TEXT NOT NULL DEFAULT 'sent',
+      error       TEXT,
+      opened_at   TIMESTAMPTZ,
+      created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `);
+
+  await pool.query(`CREATE INDEX IF NOT EXISTS idx_email_logs_track ON email_logs(track_id)`);
+  await pool.query(`CREATE INDEX IF NOT EXISTS idx_email_logs_lead ON email_logs(lead_id)`);
+
+  console.log('✅ 数据表 leads / email_logs 已就绪');
 }
 
 module.exports = { pool, initDb };

@@ -1,6 +1,6 @@
 # InnoTrans 客户信息采集系统
 
-展会现场客户信息采集工具：工作人员在展台填写客户姓名、电话 / WhatsApp、邮箱、公司，并可**调用摄像头或从图库选择照片**，数据实时写入 PostgreSQL 数据库，照片上传至阿里云 OSS 并与客户绑定。后台「历史记录」可查看、搜索、删除客户、**补传 / 更换照片**并**导出 CSV**。
+展会现场客户信息采集工具：工作人员在展台填写客户姓名、电话 / WhatsApp、邮箱、公司，并可**调用摄像头或从图库选择照片**，数据实时写入 PostgreSQL 数据库，照片上传至阿里云 OSS 并与客户绑定。客户提交后若填写了邮箱，会**自动发送问候邮件**（附产品手册、内嵌照片）。后台「历史记录」可查看、搜索、删除客户、**补传 / 更换照片**、**补发邮件**、查看**邮件记录**并**导出 CSV**。界面已适配手机 / 平板。
 
 ## 技术栈
 
@@ -16,8 +16,9 @@ innotrans-client/
 │   ├── index.js      # 入口
 │   ├── db.js         # PostgreSQL 连接 + 建表
 │   ├── oss.js        # 阿里云 OSS 上传
+│   ├── email.js      # 邮件发送 + 打开追踪
 │   ├── auth.js       # JWT 鉴权
-│   └── routes/       # leads.js / admin.js
+│   └── routes/       # leads.js / admin.js / emails.js
 └── client/           # React 前端
     └── src/
         ├── pages/    # CapturePage（采集）/ AdminPage（后台）
@@ -73,8 +74,29 @@ innotrans-client/
 | whatsapp | TEXT | WhatsApp |
 | email | TEXT | 邮箱 |
 | company | TEXT | 公司 |
-| photo_url | TEXT | OSS 照片链接（与客户绑定） |
+| photo_url | TEXT | OSS 对象 key（与客户绑定） |
 | created_at | TIMESTAMPTZ | 创建时间 |
+
+`email_logs` 表（邮件发送记录）：
+
+| 字段 | 类型 | 说明 |
+| --- | --- | --- |
+| id | SERIAL | 主键 |
+| lead_id | INTEGER | 关联客户 |
+| to_email | TEXT | 收件人 |
+| subject | TEXT | 邮件主题 |
+| track_id | TEXT | 打开追踪标识 |
+| status | TEXT | sent / opened / failed |
+| opened_at | TIMESTAMPTZ | 打开时间 |
+| created_at | TIMESTAMPTZ | 发送时间 |
+
+## 邮件功能
+
+客户提交时若填写了邮箱，后端会**自动发送问候邮件**：附件为根目录 `Sudelan-Brochure.pdf`（若存在），客户照片内嵌在正文中。后台「邮件记录」标签页可查看所有发送记录与状态，并可对单个客户**手动补发**。
+
+**打开追踪**：邮件正文含一个 1×1 追踪像素，客户打开邮件（且加载图片）时标记为「已打开」。需在 `.env` 配置 `APP_BASE_URL` 为公网地址（如 `https://your-domain.com`）才会生效；留空则不做追踪。注：Gmail 等部分邮箱默认不加载图片，打开状态可能不 100% 准确。
+
+邮件 SMTP 配置在 `.env`：`SMTP_HOST / SMTP_PORT / SMTP_SECURE / SMTP_USER / SMTP_PASS`。
 
 ## 重要说明
 
@@ -87,6 +109,8 @@ innotrans-client/
 3. **安全建议**：`.env` 中的 OSS AccessKey、数据库密码等敏感信息已被 `.gitignore` 排除，请勿提交到代码仓库。如这些密钥已在聊天或仓库中暴露，建议在阿里云控制台轮换 AccessKey。
 
 4. **CSV 导出**：后台点击「导出 CSV」会下载带 UTF-8 BOM 的文件，可直接用 Excel 打开，中文不乱码。
+
+5. **产品手册附件**：将 `Sudelan-Brochure.pdf` 放到项目根目录，发送的邮件会自动附带该 PDF；文件不存在时自动跳过（不影响发送）。
 
 ## 常用命令
 

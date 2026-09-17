@@ -6,6 +6,7 @@ const path = require('path');
 const { initDb } = require('./db');
 const leadsRouter = require('./routes/leads');
 const adminRouter = require('./routes/admin');
+const emailsRouter = require('./routes/emails');
 
 const app = express();
 
@@ -14,6 +15,7 @@ app.use(express.json({ limit: '20mb' }));
 
 app.use('/api/leads', leadsRouter);
 app.use('/api/admin', adminRouter);
+app.use('/api/email', emailsRouter);
 
 app.get('/api/health', (req, res) => res.json({ ok: true, time: new Date().toISOString() }));
 

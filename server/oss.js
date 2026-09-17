@@ -51,4 +51,14 @@ function signUrl(ref, expiresSeconds = 86400) {
   return client.signatureUrl(key, { expires: expiresSeconds });
 }
 
-module.exports = { uploadPhoto, savePhotoFromDataUrl, signUrl };
+// 读取照片原始字节（用于邮件内嵌图片）
+async function getPhotoBuffer(ref) {
+  const key = toKey(ref);
+  if (!key) throw new Error('无效的照片 key');
+  const result = await client.get(key);
+  const contentType =
+    (result.res && result.res.headers && result.res.headers['content-type']) || 'image/jpeg';
+  return { buffer: result.content, contentType };
+}
+
+module.exports = { uploadPhoto, savePhotoFromDataUrl, signUrl, getPhotoBuffer };

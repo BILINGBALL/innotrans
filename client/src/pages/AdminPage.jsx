@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import PhotoPicker from '../components/PhotoPicker';
 import {
@@ -7,6 +7,7 @@ import {
   fetchEmailLogs,
   exportLeads,
   deleteLead,
+  updateLead,
   updateLeadPhoto,
   resendEmail,
 } from '../api';
@@ -35,8 +36,15 @@ export default function AdminPage() {
   const [loginError, setLoginError] = useState('');
   const [leads, setLeads] = useState([]);
   const [loading, setLoading] = useState(false);
-  const [search, setSearch] = useState('');
   const [notice, setNotice] = useState('');
+
+  // 筛选 + 分页
+  const [search, setSearch] = useState('');
+  const [from, setFrom] = useState('');
+  const [to, setTo] = useState('');
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(20);
+  const [total, setTotal] = useState(0);
 
   const [tab, setTab] = useState('leads');
   const [emails, setEmails] = useState([]);
@@ -45,6 +53,11 @@ export default function AdminPage() {
 
   const [detail, setDetail] = useState(null);
   const [previewUrl, setPreviewUrl] = useState(null);
+
+  // 详情编辑
+  const [editMode, setEditMode] = useState(false);
+  const [editForm, setEditForm] = useState({});
+  const [saving, setSaving] = useState(false);
 
   const [appendId, setAppendId] = useState(null);
   const [appendPhoto, setAppendPhoto] = useState(null);
@@ -70,18 +83,20 @@ export default function AdminPage() {
     setEmails([]);
   };
 
-  const load = async () => {
+  const load = useCallback(async () => {
     setLoading(true);
     try {
-      const { leads } = await fetchLeads(token);
+      const { leads, total } = await fetchLeads(token, { page, pageSize, q: search, from, to });
       setLeads(leads);
+      setTotal(total);
     } catch (err) {
       setNotice(err.message);
       if (err.message.includes('登录') || err.message.includes('未授权')) logout();
     } finally {
       setLoading(false);
     }
-  };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [token, page, pageSize, search, from, to]);
 
   const loadEmails = async () => {
     setEmailsLoading(true);
@@ -96,7 +111,13 @@ export default function AdminPage() {
   };
 
   useEffect(() => {
-    if (token) load();
+    if (!token) return;
+    const t = setTimeout(load, 250);
+    return () => clearTimeout(t);
+  }, [load]);
+
+  useEffect(() => {
+    if (token) loadEmails();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [token]);
 
@@ -120,7 +141,8 @@ export default function AdminPage() {
     if (!window.confirm('确定删除该客户？此操作不可恢复。')) return;
     try {
       await deleteLead(token, id);
-      setLeads((l) => l.filter((x) => x.id !== id));
+      setDetail(null);
+      await load();
     } catch (err) {
       setNotice(err.message);
     }
@@ -166,15 +188,44 @@ export default function AdminPage() {
     }
   };
 
-  const filtered = useMemo(() => {
-    const q = search.trim().toLowerCase();
-    if (!q) return leads;
-    return leads.filter((l) =>
-      [l.name, l.phone, l.whatsapp, l.email, l.company]
-        .filter(Boolean)
-        .some((v) => String(v).toLowerCase().includes(q))
-    );
-  }, [leads, search]);
+  const closeDetail = () => {
+    setDetail(null);
+    setEditMode(false);
+  };
+
+  const startEdit = () => {
+    setEditForm({
+      name: detail.name || '',
+      phone: detail.phone || '',
+      whatsapp: detail.whatsapp || '',
+      email: detail.email || '',
+      company: detail.company || '',
+      notes: detail.notes || '',
+    });
+    setEditMode(true);
+  };
+
+  const setEditField = (key) => (e) => setEditForm((f) => ({ ...f, [key]: e.target.value }));
+
+  const saveEdit = async () => {
+    if (!editForm.name || !editForm.name.trim()) {
+      setNotice('姓名不能为空');
+      return;
+    }
+    setSaving(true);
+    try {
+      const { lead } = await updateLead(token, detail.id, editForm);
+      setDetail(lead);
+      setEditMode(false);
+      await load();
+    } catch (err) {
+      setNotice(err.message);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const totalPages = Math.max(1, Math.ceil(total / pageSize));
 
   if (!token) {
     return (
@@ -250,28 +301,16 @@ export default function AdminPage() {
 
         {tab === 'leads' && (
           <>
-            <div className="stats">
-              <div className="stat">
-                <div className="stat-value">{leads.length}</div>
-                <div className="stat-label">客户总数</div>
-              </div>
-              <div className="stat">
-                <div className="stat-value">{todayCount}</div>
-                <div className="stat-label">今日新增</div>
-              </div>
-              <div className="stat">
-                <div className="stat-value">{withPhoto}</div>
-                <div className="stat-label">已拍照</div>
-              </div>
-            </div>
-
             <div className="card">
               <div className="toolbar">
                 <input
                   className="input input-search"
                   placeholder="搜索姓名 / 电话 / 公司…"
                   value={search}
-                  onChange={(e) => setSearch(e.target.value)}
+                  onChange={(e) => {
+                    setSearch(e.target.value);
+                    setPage(1);
+                  }}
                 />
                 <button className="btn btn-outline" onClick={load} disabled={loading}>
                   {loading ? '刷新中…' : '刷新'}
@@ -279,6 +318,40 @@ export default function AdminPage() {
                 <button className="btn btn-primary" onClick={onExport}>
                   ⬇ 导出 CSV
                 </button>
+              </div>
+
+              <div className="filter-row">
+                <input
+                  type="date"
+                  className="input"
+                  value={from}
+                  onChange={(e) => {
+                    setFrom(e.target.value);
+                    setPage(1);
+                  }}
+                />
+                <span className="filter-sep">至</span>
+                <input
+                  type="date"
+                  className="input"
+                  value={to}
+                  onChange={(e) => {
+                    setTo(e.target.value);
+                    setPage(1);
+                  }}
+                />
+                {(from || to) && (
+                  <button
+                    className="btn btn-outline btn-sm"
+                    onClick={() => {
+                      setFrom('');
+                      setTo('');
+                      setPage(1);
+                    }}
+                  >
+                    清除日期
+                  </button>
+                )}
               </div>
 
               {notice && <p className="form-success">{notice}</p>}
@@ -300,7 +373,7 @@ export default function AdminPage() {
                     </tr>
                   </thead>
                   <tbody>
-                    {filtered.map((l) => (
+                    {leads.map((l) => (
                       <tr key={l.id} onClick={() => setDetail(l)}>
                         <td>
                           {l.photo_url ? (
@@ -346,7 +419,7 @@ export default function AdminPage() {
                         </td>
                       </tr>
                     ))}
-                    {filtered.length === 0 && (
+                    {leads.length === 0 && (
                       <tr>
                         <td colSpan={9} className="empty">
                           暂无数据
@@ -359,7 +432,7 @@ export default function AdminPage() {
 
               {/* 手机：卡片 */}
               <div className="lead-cards">
-                {filtered.map((l) => (
+                {leads.map((l) => (
                   <div key={l.id} className="lead-card" onClick={() => setDetail(l)}>
                     <div className="lead-card-top">
                       {l.photo_url ? (
@@ -409,7 +482,41 @@ export default function AdminPage() {
                     </div>
                   </div>
                 ))}
-                {filtered.length === 0 && <div className="empty">暂无数据</div>}
+                {leads.length === 0 && <div className="empty">暂无数据</div>}
+              </div>
+
+              <div className="pagination">
+                <span className="pagination-info">共 {total} 条</span>
+                <select
+                  className="camera-select"
+                  value={pageSize}
+                  onChange={(e) => {
+                    setPageSize(Number(e.target.value));
+                    setPage(1);
+                  }}
+                >
+                  <option value={10}>10 条/页</option>
+                  <option value={20}>20 条/页</option>
+                  <option value={50}>50 条/页</option>
+                  <option value={100}>100 条/页</option>
+                </select>
+                <button
+                  className="btn btn-outline btn-sm"
+                  disabled={page <= 1}
+                  onClick={() => setPage(page - 1)}
+                >
+                  上一页
+                </button>
+                <span className="pagination-page">
+                  {page} / {totalPages}
+                </span>
+                <button
+                  className="btn btn-outline btn-sm"
+                  disabled={page >= totalPages}
+                  onClick={() => setPage(page + 1)}
+                >
+                  下一页
+                </button>
               </div>
             </div>
           </>
@@ -428,7 +535,6 @@ export default function AdminPage() {
 
             {notice && <p className="form-success">{notice}</p>}
 
-            {/* 桌面：表格 */}
             <div className="table-wrap">
               <table className="table">
                 <thead>
@@ -465,7 +571,6 @@ export default function AdminPage() {
               </table>
             </div>
 
-            {/* 手机：卡片 */}
             <div className="email-cards">
               {emails.map((e) => (
                 <div key={e.id} className="email-card">
@@ -487,13 +592,13 @@ export default function AdminPage() {
         )}
       </main>
 
-      {/* 详情弹窗 */}
+      {/* 详情弹窗（可编辑） */}
       {detail && (
-        <div className="modal-overlay" onClick={() => setDetail(null)}>
+        <div className="modal-overlay" onClick={closeDetail}>
           <div className="modal modal-detail" onClick={(e) => e.stopPropagation()}>
             <div className="modal-header">
-              <h3 className="modal-title">{detail.name}</h3>
-              <button className="modal-x" onClick={() => setDetail(null)}>
+              <h3 className="modal-title">{editMode ? '编辑客户' : detail.name}</h3>
+              <button className="modal-x" onClick={closeDetail}>
                 ✕
               </button>
             </div>
@@ -509,48 +614,98 @@ export default function AdminPage() {
               <div className="detail-photo detail-photo-empty">暂无照片</div>
             )}
 
-            <div className="detail-grid">
-              <div className="detail-item">
-                <span>姓名</span>
-                <b>{detail.name}</b>
+            {editMode ? (
+              <div className="detail-grid detail-grid-edit">
+                <label className="field">
+                  <span className="field-label">姓名 *</span>
+                  <input className="input" value={editForm.name} onChange={setEditField('name')} />
+                </label>
+                <label className="field">
+                  <span className="field-label">电话</span>
+                  <input className="input" value={editForm.phone} onChange={setEditField('phone')} />
+                </label>
+                <label className="field">
+                  <span className="field-label">WhatsApp</span>
+                  <input className="input" value={editForm.whatsapp} onChange={setEditField('whatsapp')} />
+                </label>
+                <label className="field">
+                  <span className="field-label">邮箱</span>
+                  <input className="input" value={editForm.email} onChange={setEditField('email')} />
+                </label>
+                <label className="field">
+                  <span className="field-label">公司</span>
+                  <input className="input" value={editForm.company} onChange={setEditField('company')} />
+                </label>
+                <label className="field" style={{ gridColumn: '1 / -1' }}>
+                  <span className="field-label">备注</span>
+                  <textarea
+                    className="input input-textarea"
+                    rows={2}
+                    value={editForm.notes}
+                    onChange={setEditField('notes')}
+                  />
+                </label>
               </div>
-              <div className="detail-item">
-                <span>电话</span>
-                <b>{detail.phone || '—'}</b>
-              </div>
-              <div className="detail-item">
-                <span>WhatsApp</span>
-                <b>{detail.whatsapp || '—'}</b>
-              </div>
-              <div className="detail-item">
-                <span>邮箱</span>
-                <b>{detail.email || '—'}</b>
-              </div>
-              <div className="detail-item">
-                <span>公司</span>
-                <b>{detail.company || '—'}</b>
-              </div>
-              <div className="detail-item">
-                <span>创建时间</span>
-                <b>{fmt(detail.created_at)}</b>
-              </div>
-              <div className="detail-item" style={{ gridColumn: '1 / -1' }}>
-                <span>备注</span>
-                <b style={{ whiteSpace: 'pre-wrap' }}>{detail.notes || '—'}</b>
-              </div>
-            </div>
-
-            {detail.email && (
-              <div className="modal-actions">
-                <button
-                  className="btn btn-primary"
-                  disabled={sendingId === detail.id}
-                  onClick={() => onSendEmail(detail)}
-                >
-                  {sendingId === detail.id ? '发送中…' : '📧 发送邮件'}
-                </button>
+            ) : (
+              <div className="detail-grid">
+                <div className="detail-item">
+                  <span>姓名</span>
+                  <b>{detail.name}</b>
+                </div>
+                <div className="detail-item">
+                  <span>电话</span>
+                  <b>{detail.phone || '—'}</b>
+                </div>
+                <div className="detail-item">
+                  <span>WhatsApp</span>
+                  <b>{detail.whatsapp || '—'}</b>
+                </div>
+                <div className="detail-item">
+                  <span>邮箱</span>
+                  <b>{detail.email || '—'}</b>
+                </div>
+                <div className="detail-item">
+                  <span>公司</span>
+                  <b>{detail.company || '—'}</b>
+                </div>
+                <div className="detail-item">
+                  <span>创建时间</span>
+                  <b>{fmt(detail.created_at)}</b>
+                </div>
+                <div className="detail-item" style={{ gridColumn: '1 / -1' }}>
+                  <span>备注</span>
+                  <b style={{ whiteSpace: 'pre-wrap' }}>{detail.notes || '—'}</b>
+                </div>
               </div>
             )}
+
+            <div className="modal-actions">
+              {editMode ? (
+                <>
+                  <button className="btn btn-outline" onClick={() => setEditMode(false)}>
+                    取消
+                  </button>
+                  <button className="btn btn-primary" disabled={saving} onClick={saveEdit}>
+                    {saving ? '保存中…' : '保存'}
+                  </button>
+                </>
+              ) : (
+                <>
+                  {detail.email && (
+                    <button
+                      className="btn btn-outline"
+                      disabled={sendingId === detail.id}
+                      onClick={() => onSendEmail(detail)}
+                    >
+                      {sendingId === detail.id ? '发送中…' : '📧 发送邮件'}
+                    </button>
+                  )}
+                  <button className="btn btn-primary" onClick={startEdit}>
+                    ✏️ 编辑
+                  </button>
+                </>
+              )}
+            </div>
           </div>
         </div>
       )}

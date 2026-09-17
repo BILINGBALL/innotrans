@@ -22,9 +22,22 @@ export function adminLogin(password) {
   }).then(handle);
 }
 
-export function fetchLeads(token) {
-  return fetch(`${API_BASE}/api/admin/leads`, {
+export function fetchLeads(token, params = {}) {
+  const qs = new URLSearchParams();
+  Object.entries(params).forEach(([k, v]) => {
+    if (v !== '' && v != null) qs.set(k, v);
+  });
+  const query = qs.toString();
+  return fetch(`${API_BASE}/api/admin/leads${query ? '?' + query : ''}`, {
     headers: { Authorization: `Bearer ${token}` },
+  }).then(handle);
+}
+
+export function updateLead(token, id, data) {
+  return fetch(`${API_BASE}/api/admin/leads/${id}`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+    body: JSON.stringify(data),
   }).then(handle);
 }
 

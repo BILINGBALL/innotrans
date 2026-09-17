@@ -515,6 +515,45 @@ body {
   color: var(--muted);
 }
 
+/* ===== 筛选行 + 分页 ===== */
+.filter-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-bottom: 16px;
+}
+
+.filter-row .input {
+  max-width: 170px;
+}
+
+.filter-sep {
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.pagination {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-top: 16px;
+}
+
+.pagination-info {
+  font-size: 13px;
+  color: var(--muted);
+  margin-right: auto;
+}
+
+.pagination-page {
+  font-size: 13px;
+  color: var(--text);
+  font-weight: 600;
+}
+
 /* ===== 按钮 ===== */
 .btn {
   display: inline-flex;
@@ -853,7 +892,19 @@ body {
 }
 
 @media (max-width: 480px) {
-  .detail-grid {
+  .detail-photo {
+    max-height: 180px;
+  }
+  .detail-item {
+    padding: 8px 10px;
+  }
+  .detail-item span {
+    font-size: 11px;
+  }
+  .detail-item b {
+    font-size: 14px;
+  }
+  .detail-grid-edit {
     grid-template-columns: 1fr;
   }
 }

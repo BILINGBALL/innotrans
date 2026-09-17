@@ -20,27 +20,61 @@ router.post('/login', (req, res) => {
   res.status(401).json({ error: '密码错误' });
 });
 
-// 客户列表（照片返回签名 URL，附带最近一次邮件状态）
+// 客户列表（分页 + 搜索 + 日期筛选，照片返回签名 URL）
 router.get('/leads', authMiddleware, async (req, res) => {
   try {
-    const { rows } = await pool.query(
+    const page = Math.max(1, parseInt(req.query.page, 10) || 1);
+    const pageSize = Math.min(100, Math.max(1, parseInt(req.query.pageSize, 10) || 20));
+    const q = (req.query.q || '').trim();
+    const from = (req.query.from || '').trim();
+    const to = (req.query.to || '').trim();
+
+    const conds = [];
+    const params = [];
+    if (q) {
+      params.push(`%${q}%`);
+      conds.push(
+        `(l.name ILIKE $${params.length} OR l.phone ILIKE $${params.length} OR l.whatsapp ILIKE $${params.length} OR l.email ILIKE $${params.length} OR l.company ILIKE $${params.length} OR l.notes ILIKE $${params.length})`
+      );
+    }
+    if (from) {
+      params.push(from);
+      conds.push(`l.created_at >= $${params.length}::date`);
+    }
+    if (to) {
+      params.push(to);
+      conds.push(`l.created_at < $${params.length}::date + interval '1 day'`);
+    }
+    const where = conds.length ? 'WHERE ' + conds.join(' AND ') : '';
+
+    const totalRow = await pool.query(
+      `SELECT COUNT(*)::int AS total FROM leads l ${where}`,
+      params
+    );
+    const total = totalRow.rows[0].total;
+
+    const offset = (page - 1) * pageSize;
+    const rows = await pool.query(
       `SELECT l.*,
          (SELECT e.status FROM email_logs e WHERE e.lead_id = l.id ORDER BY e.created_at DESC LIMIT 1) AS last_email_status
-       FROM leads l
-       ORDER BY l.created_at DESC`
+       FROM leads l ${where}
+       ORDER BY l.created_at DESC
+       LIMIT $${params.length + 1} OFFSET $${params.length + 2}`,
+      [...params, pageSize, offset]
     );
-    const leads = rows.map((r) => ({
+
+    const leads = rows.rows.map((r) => ({
       ...r,
       photo_url: r.photo_url ? signUrl(r.photo_url, VIEW_TTL) : null,
     }));
-    res.json({ leads });
+    res.json({ leads, total, page, pageSize });
   } catch (err) {
     console.error('查询失败:', err);
     res.status(500).json({ error: '查询失败' });
   }
 });
 
-// 导出 CSV（照片链接带 7 天有效期）
+// 导出 CSV（照片链接带 7 天有效期，导出全部）
 router.get('/leads/export', authMiddleware, async (req, res) => {
   try {
     const { rows } = await pool.query('SELECT * FROM leads ORDER BY created_at DESC');
@@ -69,7 +103,6 @@ router.get('/leads/export', authMiddleware, async (req, res) => {
         .join(',')
     );
 
-    // BOM 让 Excel 正确识别 UTF-8 中文
     const csv = '﻿' + [header.map(escape).join(','), ...lines].join('\r\n');
 
     res.setHeader('Content-Type', 'text/csv; charset=utf-8');
@@ -81,6 +114,30 @@ router.get('/leads/export', authMiddleware, async (req, res) => {
   } catch (err) {
     console.error('导出失败:', err);
     res.status(500).json({ error: '导出失败' });
+  }
+});
+
+// 更新客户基本信息
+router.put('/leads/:id', authMiddleware, async (req, res) => {
+  try {
+    const { name, phone, whatsapp, email, company, notes } = req.body || {};
+    if (!name || !name.trim()) {
+      return res.status(400).json({ error: '姓名不能为空' });
+    }
+    const result = await pool.query(
+      `UPDATE leads SET name=$1, phone=$2, whatsapp=$3, email=$4, company=$5, notes=$6
+       WHERE id=$7 RETURNING *`,
+      [name.trim(), phone || null, whatsapp || null, email || null, company || null, notes || null, req.params.id]
+    );
+    if (result.rowCount === 0) return res.status(404).json({ error: '记录不存在' });
+    const lead = {
+      ...result.rows[0],
+      photo_url: result.rows[0].photo_url ? signUrl(result.rows[0].photo_url, VIEW_TTL) : null,
+    };
+    res.json({ success: true, lead });
+  } catch (err) {
+    console.error('更新客户失败:', err);
+    res.status(500).json({ error: '更新失败' });
   }
 });
 

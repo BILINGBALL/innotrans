@@ -67,7 +67,6 @@ export default function CapturePage() {
           <span className="topbar-logo">🚆</span>
           <div>
             <div className="topbar-title">InnoTrans 客户信息采集</div>
-            <div className="topbar-sub">Trade Show Lead Capture</div>
           </div>
         </div>
         <Link to="/admin" className="topbar-link">
@@ -75,114 +74,71 @@ export default function CapturePage() {
         </Link>
       </header>
 
-      <main className="container">
-        <form className="card" onSubmit={submit}>
-          <div className="form-grid">
-            <div className="form-fields">
-              <h2 className="section-title">客户信息</h2>
+      <main className="container container-narrow">
+        <form className="card capture-card" onSubmit={submit}>
+          <section className="form-section">
+            <h2 className="section-title">基本信息</h2>
 
-              <label className="field">
-                <span className="field-label">
-                  姓名 <i className="req">*</i>
-                </span>
-                <input
-                  className="input"
-                  placeholder="Name"
-                  value={form.name}
-                  onChange={set('name')}
-                />
-              </label>
+            <label className="field">
+              <span className="field-label">
+                姓名 <i className="req">*</i>
+              </span>
+              <input className="input" placeholder="Name" value={form.name} onChange={set('name')} />
+            </label>
 
+            <div className="field-grid">
               <label className="field">
                 <span className="field-label">电话</span>
-                <input
-                  className="input"
-                  type="tel"
-                  placeholder="Phone"
-                  value={form.phone}
-                  onChange={set('phone')}
-                />
+                <input className="input" type="tel" placeholder="Phone" value={form.phone} onChange={set('phone')} />
               </label>
-
               <label className="field">
                 <span className="field-label">WhatsApp</span>
-                <input
-                  className="input"
-                  type="tel"
-                  placeholder="WhatsApp"
-                  value={form.whatsapp}
-                  onChange={set('whatsapp')}
-                />
+                <input className="input" type="tel" placeholder="WhatsApp" value={form.whatsapp} onChange={set('whatsapp')} />
               </label>
-
               <label className="field">
                 <span className="field-label">邮箱地址</span>
-                <input
-                  className="input"
-                  type="email"
-                  placeholder="Email"
-                  value={form.email}
-                  onChange={set('email')}
-                />
+                <input className="input" type="email" placeholder="Email" value={form.email} onChange={set('email')} />
               </label>
-
               <label className="field">
                 <span className="field-label">公司名称</span>
-                <input
-                  className="input"
-                  placeholder="Company"
-                  value={form.company}
-                  onChange={set('company')}
-                />
+                <input className="input" placeholder="Company" value={form.company} onChange={set('company')} />
               </label>
-
-              <div className="field">
-                <span className="field-label">备注</span>
-                <textarea
-                  className="input input-textarea"
-                  rows={3}
-                  placeholder="Notes"
-                  value={form.notes}
-                  onChange={set('notes')}
-                />
-                <VoiceInput
-                  onText={(t) =>
-                    setForm((f) => ({ ...f, notes: (f.notes ? f.notes + ' ' : '') + t }))
-                  }
-                />
-              </div>
-
-              <label className="field-check">
-                <input
-                  type="checkbox"
-                  checked={sendEmail}
-                  onChange={(e) => setSendEmail(e.target.checked)}
-                />
-                <span>发送跟进邮件（英文）</span>
-              </label>
-
-
-              {error && <p className="form-error">{error}</p>}
-              {success && <p className="form-success">✓ 提交成功，已保存</p>}
-
-              <button
-                type="submit"
-                className="btn btn-primary btn-lg btn-block"
-                disabled={submitting || success}
-              >
-                {submitting ? '提交中…' : success ? '✓ 提交成功' : '提交客户信息'}
-              </button>
             </div>
 
-            <div className="form-camera">
-              <h2 className="section-title">客户照片</h2>
-              <PhotoPicker
-                photo={photo}
-                onCapture={setPhoto}
-                onClear={() => setPhoto(null)}
+            <label className="field">
+              <span className="field-label">备注</span>
+              <textarea className="input input-textarea" rows={3} placeholder="Notes" value={form.notes} onChange={set('notes')} />
+              <VoiceInput
+                onText={(t) => setForm((f) => ({ ...f, notes: (f.notes ? f.notes + ' ' : '') + t }))}
               />
-            </div>
+            </label>
+          </section>
+
+          <section className="form-section">
+            <h2 className="section-title">客户照片</h2>
+            <PhotoPicker photo={photo} onCapture={setPhoto} onClear={() => setPhoto(null)} />
+          </section>
+
+          <div className="form-footer">
+            <label className="field-check">
+              <input type="checkbox" checked={sendEmail} onChange={(e) => setSendEmail(e.target.checked)} />
+              <span>发送跟进邮件（英文）</span>
+            </label>
+            {sendEmail && !form.email.trim() && (
+              <span className="hint">未填邮箱，不会发送</span>
+            )}
           </div>
+
+          {error && <p className="form-error">{error}</p>}
+          {success && <p className="form-success">✓ 提交成功，已保存</p>}
+
+          <button
+            type="submit"
+            className="btn btn-primary btn-lg btn-block"
+            disabled={submitting || success}
+          >
+            {submitting ? '提交中…' : success ? '✓ 提交成功' : '提交客户信息'}
+          </button>
         </form>
       </main>
     </div>

@@ -12,7 +12,7 @@ const speechRouter = require('./routes/speech');
 const app = express();
 
 app.use(cors());
-app.use(express.json({ limit: '20mb' }));
+app.use(express.json({ limit: '50mb' }));
 
 app.use('/api/leads', leadsRouter);
 app.use('/api/admin', adminRouter);

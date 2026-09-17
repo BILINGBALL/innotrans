@@ -25,7 +25,7 @@ async function savePhotoFromDataUrl(photo) {
 
   const ext = matches[1] === 'jpeg' ? 'jpg' : matches[1];
   const buffer = Buffer.from(matches[2], 'base64');
-  if (buffer.length > 15 * 1024 * 1024) {
+  if (buffer.length > 35 * 1024 * 1024) {
     throw new Error('图片过大');
   }
   return uploadPhoto(buffer, ext);

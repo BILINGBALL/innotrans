@@ -1,7 +1,7 @@
 import { useRef, useState, useEffect, useCallback } from 'react';
 
-// 本地图片压缩到指定尺寸并转为 JPEG dataURL
-function compressFile(file, maxDim = 1600, quality = 0.85) {
+// 本地图库图片压缩（仅图库上传用）
+function compressFile(file, maxDim = 2000, quality = 0.92) {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
     reader.onload = (e) => {
@@ -28,12 +28,12 @@ function compressFile(file, maxDim = 1600, quality = 0.85) {
   });
 }
 
-// 获取摄像头流：优先后置（手机拍客户），失败则回退到任意摄像头（桌面只有前置）
-async function getCameraStream() {
+// 获取摄像头流：优先指定朝向，失败则回退到任意摄像头；请求高清分辨率
+async function getCameraStream(facingMode) {
   if (!navigator.mediaDevices?.getUserMedia) throw new Error('unsupported');
   const attempts = [
-    { video: { facingMode: 'environment', width: { ideal: 1280 }, height: { ideal: 720 } } },
-    { video: { width: { ideal: 1280 }, height: { ideal: 720 } } },
+    { video: { facingMode, width: { ideal: 1920 }, height: { ideal: 1080 } } },
+    { video: { width: { ideal: 1920 }, height: { ideal: 1080 } } },
   ];
   let lastErr;
   for (const c of attempts) {
@@ -50,10 +50,19 @@ export default function PhotoPicker({ photo, onCapture, onClear }) {
   const videoRef = useRef(null);
   const fileRef = useRef(null);
   const streamRef = useRef(null);
+  const timerRef = useRef(null);
   const [active, setActive] = useState(false);
+  const [facing, setFacing] = useState('environment');
+  const [timer, setTimer] = useState(0);
+  const [countdown, setCountdown] = useState(0);
   const [error, setError] = useState('');
 
   const stop = useCallback(() => {
+    if (timerRef.current) {
+      clearInterval(timerRef.current);
+      timerRef.current = null;
+    }
+    setCountdown(0);
     if (streamRef.current) {
       streamRef.current.getTracks().forEach((t) => t.stop());
       streamRef.current = null;
@@ -63,11 +72,10 @@ export default function PhotoPicker({ photo, onCapture, onClear }) {
 
   useEffect(() => stop, [stop]);
 
-  // active 变 true、<video> 已挂载后，再把流接上并播放
+  // active 变 true、<video> 挂载后，把流接上并播放
   useEffect(() => {
     if (active && streamRef.current && videoRef.current) {
       const v = videoRef.current;
-      // React 的 muted 属性有坑，这里用 DOM 属性强制静音 + 内联播放，确保手机端能自动播放
       v.muted = true;
       v.playsInline = true;
       v.srcObject = streamRef.current;
@@ -75,10 +83,10 @@ export default function PhotoPicker({ photo, onCapture, onClear }) {
     }
   }, [active]);
 
-  const start = useCallback(async () => {
+  const start = useCallback(async (mode) => {
     setError('');
     try {
-      const stream = await getCameraStream();
+      const stream = await getCameraStream(mode);
       streamRef.current = stream;
       setActive(true);
     } catch (e) {
@@ -86,16 +94,44 @@ export default function PhotoPicker({ photo, onCapture, onClear }) {
     }
   }, []);
 
-  const capture = () => {
+  const flip = () => {
+    const next = facing === 'environment' ? 'user' : 'environment';
+    setFacing(next);
+    stop();
+    start(next);
+  };
+
+  // 原生分辨率 + 无损 PNG 拍摄
+  const capture = useCallback(() => {
     const video = videoRef.current;
     if (!video || !video.videoWidth) return;
     const canvas = document.createElement('canvas');
     canvas.width = video.videoWidth;
     canvas.height = video.videoHeight;
     canvas.getContext('2d').drawImage(video, 0, 0, canvas.width, canvas.height);
-    onCapture(canvas.toDataURL('image/jpeg', 0.85));
+    onCapture(canvas.toDataURL('image/png'));
     stop();
-  };
+  }, [onCapture, stop]);
+
+  const startCapture = useCallback(() => {
+    if (timer <= 0) {
+      capture();
+      return;
+    }
+    let remaining = timer;
+    setCountdown(remaining);
+    timerRef.current = setInterval(() => {
+      remaining -= 1;
+      if (remaining <= 0) {
+        clearInterval(timerRef.current);
+        timerRef.current = null;
+        setCountdown(0);
+        capture();
+      } else {
+        setCountdown(remaining);
+      }
+    }, 1000);
+  }, [timer, capture]);
 
   const pickFile = async (e) => {
     const file = e.target.files?.[0];
@@ -112,7 +148,7 @@ export default function PhotoPicker({ photo, onCapture, onClear }) {
 
   const retake = () => {
     onClear();
-    start();
+    start(facing);
   };
 
   return (
@@ -130,14 +166,10 @@ export default function PhotoPicker({ photo, onCapture, onClear }) {
           <div className="camera-icon">📷</div>
           <p>拍摄或选择客户 / 名片照片</p>
           <div className="camera-actions">
-            <button type="button" className="btn btn-primary" onClick={start}>
+            <button type="button" className="btn btn-primary" onClick={() => start(facing)}>
               打开摄像头
             </button>
-            <button
-              type="button"
-              className="btn btn-outline"
-              onClick={() => fileRef.current?.click()}
-            >
+            <button type="button" className="btn btn-outline" onClick={() => fileRef.current?.click()}>
               从图库选择
             </button>
           </div>
@@ -148,10 +180,25 @@ export default function PhotoPicker({ photo, onCapture, onClear }) {
       {active && !photo && (
         <div className="camera-live">
           <video ref={videoRef} autoPlay playsInline muted className="camera-video" />
+          {countdown > 0 && <div className="countdown-overlay">{countdown}</div>}
           <div className="camera-actions">
-            <button type="button" className="btn btn-primary" onClick={capture}>
+            <button type="button" className="btn btn-primary" onClick={startCapture}>
               拍照
             </button>
+            <button type="button" className="btn btn-outline" onClick={flip}>
+              🔄 翻转
+            </button>
+            <select
+              className="camera-select"
+              value={timer}
+              onChange={(e) => setTimer(Number(e.target.value))}
+              title="延时拍摄"
+            >
+              <option value={0}>即时</option>
+              <option value={3}>3 秒</option>
+              <option value={5}>5 秒</option>
+              <option value={10}>10 秒</option>
+            </select>
             <button type="button" className="btn btn-outline" onClick={stop}>
               关闭
             </button>
@@ -166,11 +213,7 @@ export default function PhotoPicker({ photo, onCapture, onClear }) {
             <button type="button" className="btn btn-outline" onClick={retake}>
               重拍
             </button>
-            <button
-              type="button"
-              className="btn btn-outline"
-              onClick={() => fileRef.current?.click()}
-            >
+            <button type="button" className="btn btn-outline" onClick={() => fileRef.current?.click()}>
               换图库图片
             </button>
             <button type="button" className="btn btn-outline" onClick={onClear}>

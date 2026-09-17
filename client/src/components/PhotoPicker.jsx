@@ -28,6 +28,24 @@ function compressFile(file, maxDim = 1600, quality = 0.85) {
   });
 }
 
+// 获取摄像头流：优先后置（手机拍客户），失败则回退到任意摄像头（桌面只有前置）
+async function getCameraStream() {
+  if (!navigator.mediaDevices?.getUserMedia) throw new Error('unsupported');
+  const attempts = [
+    { video: { facingMode: 'environment', width: { ideal: 1280 }, height: { ideal: 720 } } },
+    { video: { width: { ideal: 1280 }, height: { ideal: 720 } } },
+  ];
+  let lastErr;
+  for (const c of attempts) {
+    try {
+      return await navigator.mediaDevices.getUserMedia({ video: c.video, audio: false });
+    } catch (e) {
+      lastErr = e;
+    }
+  }
+  throw lastErr;
+}
+
 export default function PhotoPicker({ photo, onCapture, onClear }) {
   const videoRef = useRef(null);
   const fileRef = useRef(null);
@@ -45,23 +63,23 @@ export default function PhotoPicker({ photo, onCapture, onClear }) {
 
   useEffect(() => stop, [stop]);
 
+  // active 变 true、<video> 已挂载后，再把流接上并播放
+  useEffect(() => {
+    if (active && streamRef.current && videoRef.current) {
+      const v = videoRef.current;
+      // React 的 muted 属性有坑，这里用 DOM 属性强制静音 + 内联播放，确保手机端能自动播放
+      v.muted = true;
+      v.playsInline = true;
+      v.srcObject = streamRef.current;
+      v.play().catch(() => {});
+    }
+  }, [active]);
+
   const start = useCallback(async () => {
     setError('');
     try {
-      if (!navigator.mediaDevices?.getUserMedia) throw new Error('unsupported');
-      const stream = await navigator.mediaDevices.getUserMedia({
-        video: {
-          facingMode: 'environment',
-          width: { ideal: 1280 },
-          height: { ideal: 720 },
-        },
-        audio: false,
-      });
+      const stream = await getCameraStream();
       streamRef.current = stream;
-      if (videoRef.current) {
-        videoRef.current.srcObject = stream;
-        await videoRef.current.play();
-      }
       setActive(true);
     } catch (e) {
       setError('无法访问摄像头：请允许浏览器摄像头权限，并确认通过 HTTPS 或 localhost 访问。');
@@ -70,10 +88,10 @@ export default function PhotoPicker({ photo, onCapture, onClear }) {
 
   const capture = () => {
     const video = videoRef.current;
-    if (!video) return;
+    if (!video || !video.videoWidth) return;
     const canvas = document.createElement('canvas');
-    canvas.width = video.videoWidth || 1280;
-    canvas.height = video.videoHeight || 720;
+    canvas.width = video.videoWidth;
+    canvas.height = video.videoHeight;
     canvas.getContext('2d').drawImage(video, 0, 0, canvas.width, canvas.height);
     onCapture(canvas.toDataURL('image/jpeg', 0.85));
     stop();

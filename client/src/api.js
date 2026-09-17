@@ -56,6 +56,14 @@ export function fetchEmailLogs(token) {
   }).then(handle);
 }
 
+export function recognizeSpeech(audio) {
+  return fetch(`${API_BASE}/api/speech/recognize`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ audio }),
+  }).then(handle);
+}
+
 // 带鉴权的 CSV 导出，用 Blob 下载
 export async function exportLeads(token) {
   const res = await fetch(`${API_BASE}/api/admin/leads/export`, {

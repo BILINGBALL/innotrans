@@ -288,6 +288,35 @@ body {
   margin: 0;
 }
 
+/* ===== 语音输入 ===== */
+.voice {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.voice-error {
+  color: var(--danger);
+  font-size: 13px;
+}
+
+.btn-recording {
+  background: #fef2f2;
+  border-color: var(--danger);
+  color: var(--danger);
+  animation: voice-pulse 1.2s infinite;
+}
+
+@keyframes voice-pulse {
+  0%, 100% {
+    box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.4);
+  }
+  50% {
+    box-shadow: 0 0 0 6px rgba(239, 68, 68, 0);
+  }
+}
+
 /* ===== 按钮 ===== */
 .btn {
   display: inline-flex;

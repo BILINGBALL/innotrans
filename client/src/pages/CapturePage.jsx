@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import PasswordGate from '../components/PasswordGate';
 import PhotoPicker from '../components/PhotoPicker';
+import VoiceInput from '../components/VoiceInput';
 import { createLead } from '../api';
 
 const EMPTY = { name: '', phone: '', whatsapp: '', email: '', company: '', notes: '' };
@@ -135,16 +136,21 @@ export default function CapturePage() {
                 />
               </label>
 
-              <label className="field">
+              <div className="field">
                 <span className="field-label">备注</span>
                 <textarea
                   className="input input-textarea"
                   rows={3}
-                  placeholder="Notes（无长度限制）"
+                  placeholder="Notes"
                   value={form.notes}
                   onChange={set('notes')}
                 />
-              </label>
+                <VoiceInput
+                  onText={(t) =>
+                    setForm((f) => ({ ...f, notes: (f.notes ? f.notes + ' ' : '') + t }))
+                  }
+                />
+              </div>
 
               <label className="field-check">
                 <input
@@ -154,9 +160,7 @@ export default function CapturePage() {
                 />
                 <span>发送跟进邮件（英文）</span>
               </label>
-              {sendEmail && !form.email.trim() && (
-                <p className="hint">未填写邮箱，勾选发送邮件不会生效（不会报错，仅跳过发送）。</p>
-              )}
+
 
               {error && <p className="form-error">{error}</p>}
               {success && <p className="form-success">✓ 提交成功，已保存</p>}

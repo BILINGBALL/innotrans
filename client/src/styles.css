@@ -775,6 +775,119 @@ body {
   max-width: 560px;
 }
 
+/* ===== 二维码抽屉 + 回收站 ===== */
+button.topbar-link {
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  padding: 0;
+  font-family: inherit;
+}
+
+.drawer-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.4);
+  z-index: 90;
+}
+
+.drawer {
+  position: fixed;
+  top: 0;
+  right: 0;
+  height: 100%;
+  width: 400px;
+  max-width: 100%;
+  background: #fff;
+  box-shadow: var(--shadow);
+  z-index: 95;
+  transform: translateX(100%);
+  visibility: hidden;
+  transition: transform 0.25s ease, visibility 0.25s;
+  display: flex;
+  flex-direction: column;
+}
+
+.drawer-open {
+  transform: translateX(0);
+  visibility: visible;
+}
+
+.drawer-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--border);
+}
+
+.drawer-body {
+  padding: 20px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.qr-list {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.qr-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 16px;
+  background: #fff;
+}
+
+.qr-card.qr-used {
+  opacity: 0.6;
+}
+
+.qr-img {
+  width: 180px;
+  height: 180px;
+  display: block;
+}
+
+.qr-loading {
+  width: 180px;
+  height: 180px;
+  display: grid;
+  place-items: center;
+  color: var(--muted);
+}
+
+.qr-info {
+  text-align: center;
+}
+
+.qr-status {
+  font-weight: 600;
+  font-size: 14px;
+}
+
+.qr-time {
+  color: var(--muted);
+  font-size: 12px;
+  margin-top: 2px;
+}
+
+.qr-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.modal-recycle {
+  max-width: 640px;
+}
+
 /* ===== 统计 ===== */
 .stats {
   display: grid;

@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import PasswordGate from '../components/PasswordGate';
 import PhotoPicker from '../components/PhotoPicker';
 import VoiceInput from '../components/VoiceInput';
+import QrDrawer from '../components/QrDrawer';
 import { createLead } from '../api';
 import { normalizePhone } from '../phone';
 
@@ -18,6 +19,7 @@ export default function CapturePage() {
   const [submitting, setSubmitting] = useState(false);
   const [success, setSuccess] = useState(false);
   const [error, setError] = useState('');
+  const [qrOpen, setQrOpen] = useState(false);
 
   // 流式语音识别：记录录音开始时的 notes 作为"基底"，识别过程中用 (基底 + 识别文本) 覆盖 notes
   const voiceBaseRef = useRef('');
@@ -79,9 +81,14 @@ export default function CapturePage() {
             <div className="topbar-title">InnoTrans 客户信息采集</div>
           </div>
         </div>
-        <Link to="/admin" className="topbar-link">
-          历史记录
-        </Link>
+        <div className="topbar-actions">
+          <button type="button" className="topbar-link" onClick={() => setQrOpen(true)}>
+            二维码
+          </button>
+          <Link to="/admin" className="topbar-link">
+            历史记录
+          </Link>
+        </div>
       </header>
 
       <main className="container container-narrow">
@@ -177,6 +184,8 @@ export default function CapturePage() {
           </button>
         </form>
       </main>
+
+      <QrDrawer open={qrOpen} onClose={() => setQrOpen(false)} />
     </div>
   );
 }

@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import PhotoPicker from '../components/PhotoPicker';
+import RecycleBin from '../components/RecycleBin';
 import {
   adminLogin,
   fetchLeads,
@@ -74,6 +75,7 @@ export default function AdminPage() {
   const [composeBody, setComposeBody] = useState('');
   const [composing, setComposing] = useState(false);
   const [emailSending, setEmailSending] = useState(false);
+  const [recycleOpen, setRecycleOpen] = useState(false);
 
   const doLogin = async (e) => {
     e.preventDefault();
@@ -149,7 +151,7 @@ export default function AdminPage() {
   };
 
   const onDelete = async (id) => {
-    if (!window.confirm('确定删除该客户？此操作不可恢复。')) return;
+    if (!window.confirm('确定将该客户移入回收站？可在回收站恢复。')) return;
     try {
       await deleteLead(token, id);
       setDetail(null);
@@ -328,6 +330,9 @@ export default function AdminPage() {
           <Link to="/" className="topbar-link">
             采集页
           </Link>
+          <button className="btn btn-outline btn-sm" onClick={() => setRecycleOpen(true)}>
+            回收站
+          </button>
           <button className="btn btn-outline btn-sm" onClick={logout}>
             退出登录
           </button>
@@ -464,7 +469,7 @@ export default function AdminPage() {
                               管理照片
                             </button>
                             <button className="btn btn-danger btn-sm" onClick={() => onDelete(l.id)}>
-                              删除
+                              移入回收站
                             </button>
                           </div>
                         </td>
@@ -528,7 +533,7 @@ export default function AdminPage() {
                         管理照片
                       </button>
                       <button className="btn btn-danger btn-sm" onClick={() => onDelete(l.id)}>
-                        删除
+                        移入回收站
                       </button>
                     </div>
                   </div>
@@ -896,6 +901,8 @@ export default function AdminPage() {
           </div>
         </div>
       )}
+
+      <RecycleBin open={recycleOpen} onClose={() => setRecycleOpen(false)} onChanged={load} />
     </div>
   );
 }

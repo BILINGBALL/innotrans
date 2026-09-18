@@ -49,6 +49,21 @@ async function initDb() {
     `UPDATE leads SET photos = jsonb_build_array(photo_url) WHERE photos IS NULL AND photo_url IS NOT NULL`
   );
 
+  // 软删除：deleted_at 非空表示已进回收站
+  await pool.query(`ALTER TABLE leads ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMPTZ`);
+
+  // 二维码自助填写（每个 token 对应一个一次性链接）
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS qr_codes (
+      id         SERIAL PRIMARY KEY,
+      token      TEXT UNIQUE NOT NULL,
+      label      TEXT,
+      scanned_at TIMESTAMPTZ,
+      filled_at  TIMESTAMPTZ,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `);
+
   await pool.query(`
     CREATE TABLE IF NOT EXISTS email_logs (
       id          SERIAL PRIMARY KEY,

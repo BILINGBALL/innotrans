@@ -1,6 +1,6 @@
 const express = require('express');
 const { pool } = require('../db');
-const { signToken, authMiddleware } = require('../auth');
+const { signToken, signRecycleToken, authMiddleware, recycleMiddleware } = require('../auth');
 const { savePhotosFromDataUrls, signUrl } = require('../oss');
 const { logAndSendEmail, getDefaultEmail } = require('../email');
 
@@ -49,7 +49,7 @@ router.get('/leads', authMiddleware, async (req, res) => {
     const from = (req.query.from || '').trim();
     const to = (req.query.to || '').trim();
 
-    const conds = [];
+    const conds = ['l.deleted_at IS NULL'];
     const params = [];
     if (q) {
       params.push(`%${q}%`);
@@ -94,7 +94,7 @@ router.get('/leads', authMiddleware, async (req, res) => {
 // 导出 CSV（照片链接带 7 天有效期，导出全部）
 router.get('/leads/export', authMiddleware, async (req, res) => {
   try {
-    const { rows } = await pool.query('SELECT * FROM leads ORDER BY created_at DESC');
+    const { rows } = await pool.query('SELECT * FROM leads WHERE deleted_at IS NULL ORDER BY created_at DESC');
 
     const header = ['ID', '姓名', '电话', 'WhatsApp', '邮箱', '公司', '备注', '照片链接', '创建时间'];
     const escape = (v) => `"${String(v ?? '').replace(/"/g, '""')}"`;
@@ -232,14 +232,60 @@ router.get('/emails', authMiddleware, async (req, res) => {
   }
 });
 
-// 删除客户
+// 删除客户（软删除：移入回收站）
 router.delete('/leads/:id', authMiddleware, async (req, res) => {
   try {
-    await pool.query('DELETE FROM leads WHERE id = $1', [req.params.id]);
+    await pool.query('UPDATE leads SET deleted_at = NOW() WHERE id = $1', [req.params.id]);
     res.json({ success: true });
   } catch (err) {
     console.error('删除失败:', err);
     res.status(500).json({ error: '删除失败' });
+  }
+});
+
+// ===== 回收站（独立密码） =====
+
+// 回收站登录
+router.post('/recycle/login', async (req, res) => {
+  const { password } = req.body || {};
+  if (password && password === process.env.RECYCLE_PASSWORD) {
+    return res.json({ success: true, token: signRecycleToken() });
+  }
+  res.status(401).json({ error: '回收站密码错误' });
+});
+
+// 回收站列表（已软删除的客户）
+router.get('/recycle', recycleMiddleware, async (req, res) => {
+  try {
+    const { rows } = await pool.query(
+      `SELECT * FROM leads WHERE deleted_at IS NOT NULL ORDER BY deleted_at DESC`
+    );
+    res.json({ leads: rows.map((r) => withSignedPhotos(r, VIEW_TTL)) });
+  } catch (err) {
+    console.error('查询回收站失败:', err);
+    res.status(500).json({ error: '查询失败' });
+  }
+});
+
+// 恢复客户（移出回收站）
+router.post('/recycle/:id/restore', recycleMiddleware, async (req, res) => {
+  try {
+    await pool.query('UPDATE leads SET deleted_at = NULL WHERE id = $1', [req.params.id]);
+    res.json({ success: true });
+  } catch (err) {
+    console.error('恢复失败:', err);
+    res.status(500).json({ error: '恢复失败' });
+  }
+});
+
+// 彻底删除客户（物理删除）
+router.delete('/recycle/:id', recycleMiddleware, async (req, res) => {
+  try {
+    await pool.query('DELETE FROM leads WHERE id = $1', [req.params.id]);
+    res.json({ success: true });
+  } catch (err) {
+    console.error('彻底删除失败:', err);
+    res.status(500).json({ error: '彻底删除失败' });
   }
 });
 

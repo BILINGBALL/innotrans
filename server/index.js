@@ -18,6 +18,7 @@ const leadsRouter = require('./routes/leads');
 const adminRouter = require('./routes/admin');
 const emailsRouter = require('./routes/emails');
 const speechRouter = require('./routes/speech');
+const qrRouter = require('./routes/qr');
 
 const app = express();
 
@@ -28,6 +29,7 @@ app.use('/api/leads', leadsRouter);
 app.use('/api/admin', adminRouter);
 app.use('/api/email', emailsRouter);
 app.use('/api/speech', speechRouter);
+app.use('/api/qr', qrRouter);
 
 app.get('/api/health', (req, res) => res.json({ ok: true, time: new Date().toISOString() }));
 

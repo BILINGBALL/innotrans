@@ -113,3 +113,70 @@ export async function exportLeads(token) {
   a.remove();
   URL.revokeObjectURL(url);
 }
+
+// ===== 二维码自助填写 =====
+export function createQr(token, label) {
+  return fetch(`${API_BASE}/api/qr`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+    body: JSON.stringify({ label }),
+  }).then(handle);
+}
+
+export function listQr(token) {
+  return fetch(`${API_BASE}/api/qr`, {
+    headers: { Authorization: `Bearer ${token}` },
+  }).then(handle);
+}
+
+export function deleteQr(token, id) {
+  return fetch(`${API_BASE}/api/qr/${id}`, {
+    method: 'DELETE',
+    headers: { Authorization: `Bearer ${token}` },
+  }).then(handle);
+}
+
+export function getQrStatus(qrToken) {
+  return fetch(`${API_BASE}/api/qr/${qrToken}`).then(handle);
+}
+
+export function scanQr(qrToken) {
+  return fetch(`${API_BASE}/api/qr/${qrToken}/scan`, { method: 'POST' }).then(handle);
+}
+
+export function submitQrLead(qrToken, data) {
+  return fetch(`${API_BASE}/api/qr/${qrToken}/lead`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(data),
+  }).then(handle);
+}
+
+// ===== 回收站 =====
+export function recycleLogin(password) {
+  return fetch(`${API_BASE}/api/admin/recycle/login`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ password }),
+  }).then(handle);
+}
+
+export function fetchRecycle(token) {
+  return fetch(`${API_BASE}/api/admin/recycle`, {
+    headers: { Authorization: `Bearer ${token}` },
+  }).then(handle);
+}
+
+export function restoreLead(token, id) {
+  return fetch(`${API_BASE}/api/admin/recycle/${id}/restore`, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${token}` },
+  }).then(handle);
+}
+
+export function hardDeleteLead(token, id) {
+  return fetch(`${API_BASE}/api/admin/recycle/${id}`, {
+    method: 'DELETE',
+    headers: { Authorization: `Bearer ${token}` },
+  }).then(handle);
+}

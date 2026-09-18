@@ -150,10 +150,12 @@ function connectAsr({ onReady, onResult, onClose, onError } = {}) {
   });
 
   ws.on('error', (e) => {
+    console.error('[ASR] 火山连接错误:', e && e.message ? e.message : e);
     if (onError) onError(e && e.message ? e.message : '语音识别连接错误');
   });
 
-  ws.on('close', () => {
+  ws.on('close', (code, reason) => {
+    console.error(`[ASR] 火山连接关闭 code=${code} reason=${reason ? reason.toString() : ''}`);
     if (onClose) onClose();
   });
 

@@ -8,7 +8,7 @@ import {
   exportLeads,
   deleteLead,
   updateLead,
-  updateLeadPhoto,
+  updateLeadPhotos,
   getEmailDefault,
   resendEmail,
 } from '../api';
@@ -18,6 +18,9 @@ function fmt(d) {
   if (!d) return '';
   return new Date(d).toLocaleString('zh-CN', { hour12: false });
 }
+
+// 主图（封面）的高清 URL，用于点击缩略图放大
+const mainFull = (l) => (l.photos && l.photos[0] ? l.photos[0].full : l.photo_url);
 
 const EMAIL_STATUS = {
   sent: ['已发送', 'badge-sent'],
@@ -60,10 +63,10 @@ export default function AdminPage() {
   const [editForm, setEditForm] = useState({});
   const [saving, setSaving] = useState(false);
 
-  const [appendId, setAppendId] = useState(null);
-  const [appendPhoto, setAppendPhoto] = useState(null);
-  const [appending, setAppending] = useState(false);
-  const [appendError, setAppendError] = useState('');
+  const [manageLead, setManageLead] = useState(null);
+  const [manageNew, setManageNew] = useState([]);
+  const [manageSaving, setManageSaving] = useState(false);
+  const [manageError, setManageError] = useState('');
 
   // 邮件编辑弹窗
   const [composeLead, setComposeLead] = useState(null);
@@ -188,29 +191,46 @@ export default function AdminPage() {
     }
   };
 
-  const openAppend = (id) => {
-    setAppendId(id);
-    setAppendPhoto(null);
-    setAppendError('');
+  const openManagePhotos = (l) => {
+    setManageLead(l);
+    setManageNew([]);
+    setManageError('');
   };
 
-  const closeAppend = () => {
-    setAppendId(null);
-    setAppendPhoto(null);
-    setAppendError('');
+  const closeManagePhotos = () => {
+    setManageLead(null);
+    setManageNew([]);
+    setManageError('');
   };
 
-  const savePhoto = async () => {
-    setAppending(true);
-    setAppendError('');
+  // 管理弹窗内对已有照片的删除 / 设为封面（仅改本地状态，保存时统一提交）
+  const manageRemove = (idx) => {
+    setManageLead((l) => ({ ...l, photos: l.photos.filter((_, i) => i !== idx) }));
+  };
+  const manageSetCover = (idx) => {
+    setManageLead((l) => {
+      const next = [...l.photos];
+      const [p] = next.splice(idx, 1);
+      next.unshift(p);
+      return { ...l, photos: next };
+    });
+  };
+
+  const savePhotos = async () => {
+    setManageSaving(true);
+    setManageError('');
     try {
-      await updateLeadPhoto(token, appendId, appendPhoto);
+      const { lead } = await updateLeadPhotos(token, manageLead.id, {
+        keys: (manageLead.photos || []).map((p) => p.key),
+        dataUrls: manageNew,
+      });
+      setManageLead(null);
+      setDetail((d) => (d && d.id === lead.id ? lead : d));
       await load();
-      closeAppend();
     } catch (err) {
-      setAppendError(err.message);
+      setManageError(err.message);
     } finally {
-      setAppending(false);
+      setManageSaving(false);
     }
   };
 
@@ -414,7 +434,7 @@ export default function AdminPage() {
                               alt={l.name}
                               onClick={(e) => {
                                 e.stopPropagation();
-                                setPreviewUrl(l.photo_url);
+                                setPreviewUrl(mainFull(l));
                               }}
                             />
                           ) : (
@@ -440,8 +460,8 @@ export default function AdminPage() {
                             >
                               发邮件
                             </button>
-                            <button className="btn btn-outline btn-sm" onClick={() => openAppend(l.id)}>
-                              {l.photo_url ? '换照片' : '补传照片'}
+                            <button className="btn btn-outline btn-sm" onClick={() => openManagePhotos(l)}>
+                              管理照片
                             </button>
                             <button className="btn btn-danger btn-sm" onClick={() => onDelete(l.id)}>
                               删除
@@ -473,7 +493,7 @@ export default function AdminPage() {
                           alt={l.name}
                           onClick={(e) => {
                             e.stopPropagation();
-                            setPreviewUrl(l.photo_url);
+                            setPreviewUrl(mainFull(l));
                           }}
                         />
                       ) : (
@@ -504,8 +524,8 @@ export default function AdminPage() {
                       >
                         发邮件
                       </button>
-                      <button className="btn btn-outline btn-sm" onClick={() => openAppend(l.id)}>
-                        {l.photo_url ? '换照片' : '补照片'}
+                      <button className="btn btn-outline btn-sm" onClick={() => openManagePhotos(l)}>
+                        管理照片
                       </button>
                       <button className="btn btn-danger btn-sm" onClick={() => onDelete(l.id)}>
                         删除
@@ -634,13 +654,20 @@ export default function AdminPage() {
               </button>
             </div>
 
-            {detail.photo_url ? (
-              <img
-                src={detail.photo_url}
-                alt={detail.name}
-                className="detail-photo"
-                onClick={() => setPreviewUrl(detail.photo_url)}
-              />
+            {detail.photos && detail.photos.length > 0 ? (
+              <div className="photo-grid detail-photos">
+                {detail.photos.map((p, i) => (
+                  <div className="photo-cell" key={p.key || i}>
+                    <img
+                      src={p.thumb}
+                      alt={detail.name}
+                      className="photo-img"
+                      onClick={() => setPreviewUrl(p.full)}
+                    />
+                    {i === 0 && <span className="photo-cover">封面</span>}
+                  </div>
+                ))}
+              </div>
             ) : (
               <div className="detail-photo detail-photo-empty">暂无照片</div>
             )}
@@ -736,6 +763,9 @@ export default function AdminPage() {
                       📧 发送邮件
                     </button>
                   )}
+                  <button className="btn btn-outline" onClick={() => openManagePhotos(detail)}>
+                    🖼 管理照片
+                  </button>
                   <button className="btn btn-primary" onClick={startEdit}>
                     ✏️ 编辑
                   </button>
@@ -761,27 +791,53 @@ export default function AdminPage() {
         </div>
       )}
 
-      {/* 补传照片弹窗 */}
-      {appendId != null && (
-        <div className="modal-overlay" onClick={closeAppend}>
-          <div className="modal" onClick={(e) => e.stopPropagation()}>
-            <h3 className="modal-title">补传 / 更换客户照片</h3>
-            <PhotoPicker
-              photo={appendPhoto}
-              onCapture={setAppendPhoto}
-              onClear={() => setAppendPhoto(null)}
-            />
-            {appendError && <p className="form-error">{appendError}</p>}
+      {/* 管理照片弹窗 */}
+      {manageLead && (
+        <div className="modal-overlay" onClick={closeManagePhotos}>
+          <div className="modal modal-manage" onClick={(e) => e.stopPropagation()}>
+            <h3 className="modal-title">管理照片 · {manageLead.name}</h3>
+
+            {manageLead.photos && manageLead.photos.length > 0 ? (
+              <div className="photo-grid">
+                {manageLead.photos.map((p, i) => (
+                  <div className="photo-cell" key={p.key || i}>
+                    <img src={p.thumb} alt={manageLead.name} className="photo-img" />
+                    {i === 0 && <span className="photo-cover">封面</span>}
+                    <div className="photo-cell-actions">
+                      {i !== 0 && (
+                        <button type="button" className="btn btn-outline btn-sm" onClick={() => manageSetCover(i)}>
+                          设为封面
+                        </button>
+                      )}
+                      <button type="button" className="btn btn-outline btn-sm" onClick={() => manageRemove(i)}>
+                        移除
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="hint">暂无照片</p>
+            )}
+
+            {6 - (manageLead.photos ? manageLead.photos.length : 0) > 0 && (
+              <div className="manage-new">
+                <PhotoPicker
+                  photos={manageNew}
+                  onChange={setManageNew}
+                  max={6 - (manageLead.photos ? manageLead.photos.length : 0)}
+                />
+              </div>
+            )}
+
+            {manageError && <p className="form-error">{manageError}</p>}
+
             <div className="modal-actions">
-              <button className="btn btn-outline" onClick={closeAppend}>
+              <button className="btn btn-outline" onClick={closeManagePhotos}>
                 取消
               </button>
-              <button
-                className="btn btn-primary"
-                disabled={!appendPhoto || appending}
-                onClick={savePhoto}
-              >
-                {appending ? '上传中…' : '保存照片'}
+              <button className="btn btn-primary" disabled={manageSaving} onClick={savePhotos}>
+                {manageSaving ? '保存中…' : '保存'}
               </button>
             </div>
           </div>

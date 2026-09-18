@@ -48,11 +48,11 @@ export function deleteLead(token, id) {
   }).then(handle);
 }
 
-export function updateLeadPhoto(token, id, photo) {
-  return fetch(`${API_BASE}/api/admin/leads/${id}/photo`, {
+export function updateLeadPhotos(token, id, { keys, dataUrls }) {
+  return fetch(`${API_BASE}/api/admin/leads/${id}/photos`, {
     method: 'PUT',
     headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-    body: JSON.stringify({ photo }),
+    body: JSON.stringify({ keys, dataUrls }),
   }).then(handle);
 }
 

@@ -712,6 +712,69 @@ body {
   justify-content: center;
 }
 
+/* ===== 多图（采集 + 后台） ===== */
+.photo-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  gap: 12px;
+}
+
+.photo-cell {
+  position: relative;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  overflow: hidden;
+  background: #f1f5f9;
+}
+
+.photo-img {
+  width: 100%;
+  aspect-ratio: 4 / 3;
+  object-fit: cover;
+  display: block;
+  background: #0f172a;
+  cursor: zoom-in;
+}
+
+.photo-cover {
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  background: var(--primary);
+  color: #fff;
+  font-size: 12px;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 999px;
+  pointer-events: none;
+}
+
+.photo-cell-actions {
+  display: flex;
+  gap: 6px;
+  padding: 8px;
+  justify-content: center;
+  flex-wrap: wrap;
+}
+
+.photo-add {
+  min-height: 96px;
+  border-style: dashed;
+  font-size: 14px;
+}
+
+.detail-photos {
+  margin-bottom: 16px;
+}
+
+.manage-new {
+  margin-top: 16px;
+}
+
+.modal-manage {
+  max-width: 560px;
+}
+
 /* ===== 统计 ===== */
 .stats {
   display: grid;

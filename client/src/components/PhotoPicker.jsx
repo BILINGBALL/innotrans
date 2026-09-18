@@ -29,21 +29,34 @@ function compressFile(file, maxDim = 2560, quality = 0.95) {
   });
 }
 
-export default function PhotoPicker({ photo, onCapture, onClear }) {
+export default function PhotoPicker({ photos = [], onChange, max = 6 }) {
   const fileRef = useRef(null);
   const [error, setError] = useState('');
 
-  const pickFile = async (e) => {
-    const file = e.target.files?.[0];
+  const addFiles = async (e) => {
+    const files = Array.from(e.target.files || []);
     e.target.value = '';
-    if (!file) return;
+    if (!files.length) return;
     setError('');
+    const remaining = max - photos.length;
+    if (remaining <= 0) return;
     try {
-      const dataUrl = await compressFile(file);
-      onCapture(dataUrl);
+      const dataUrls = [];
+      for (const f of files.slice(0, remaining)) {
+        dataUrls.push(await compressFile(f));
+      }
+      onChange([...photos, ...dataUrls]);
     } catch (err) {
       setError('图片读取失败，请换一张试试');
     }
+  };
+
+  const remove = (idx) => onChange(photos.filter((_, i) => i !== idx));
+  const setCover = (idx) => {
+    const next = [...photos];
+    const [p] = next.splice(idx, 1);
+    next.unshift(p);
+    onChange(next);
   };
 
   return (
@@ -52,36 +65,54 @@ export default function PhotoPicker({ photo, onCapture, onClear }) {
         ref={fileRef}
         type="file"
         accept="image/*"
+        multiple
         style={{ display: 'none' }}
-        onChange={pickFile}
+        onChange={addFiles}
       />
 
-      {!photo && (
+      {photos.length === 0 && (
         <div className="camera-placeholder">
           <div className="camera-icon">📷</div>
-          <p>拍照或选择客户 / 名片照片</p>
+          <p>拍照或选择客户 / 名片照片（可多张）</p>
           <div className="camera-actions">
             <button type="button" className="btn btn-primary" onClick={() => fileRef.current?.click()}>
               拍照 / 上传图片
             </button>
           </div>
-          {error && <p className="camera-error">{error}</p>}
         </div>
       )}
 
-      {photo && (
-        <div className="camera-result">
-          <img src={photo} alt="客户照片" className="camera-photo" />
-          <div className="camera-actions">
-            <button type="button" className="btn btn-outline" onClick={() => fileRef.current?.click()}>
-              换一张
+      {photos.length > 0 && (
+        <div className="photo-grid">
+          {photos.map((p, i) => (
+            <div className="photo-cell" key={i}>
+              <img src={p} alt="客户照片" className="photo-img" />
+              {i === 0 && <span className="photo-cover">封面</span>}
+              <div className="photo-cell-actions">
+                {i !== 0 && (
+                  <button type="button" className="btn btn-outline btn-sm" onClick={() => setCover(i)}>
+                    设为封面
+                  </button>
+                )}
+                <button type="button" className="btn btn-outline btn-sm" onClick={() => remove(i)}>
+                  移除
+                </button>
+              </div>
+            </div>
+          ))}
+          {photos.length < max && (
+            <button
+              type="button"
+              className="btn btn-outline photo-add"
+              onClick={() => fileRef.current?.click()}
+            >
+              ＋ 添加（{photos.length}/{max}）
             </button>
-            <button type="button" className="btn btn-outline" onClick={onClear}>
-              移除
-            </button>
-          </div>
+          )}
         </div>
       )}
+
+      {error && <p className="camera-error">{error}</p>}
     </div>
   );
 }

@@ -44,11 +44,22 @@ function toKey(ref) {
   return ref;
 }
 
-// 生成临时签名 URL（私有 bucket 用），默认 24 小时有效
-function signUrl(ref, expiresSeconds = 86400) {
+// 生成临时签名 URL（私有 bucket 用），默认 24 小时有效；process 为可选图片处理参数（如 image/resize,w_400）
+function signUrl(ref, expiresSeconds = 86400, process) {
   const key = toKey(ref);
   if (!key) return null;
-  return client.signatureUrl(key, { expires: expiresSeconds });
+  return client.signatureUrl(key, { expires: expiresSeconds, process });
+}
+
+// 批量上传照片（dataURL 数组），返回 OSS key 数组（过滤无效项）
+async function savePhotosFromDataUrls(photos) {
+  if (!Array.isArray(photos)) return [];
+  const keys = [];
+  for (const p of photos) {
+    const key = await savePhotoFromDataUrl(p);
+    if (key) keys.push(key);
+  }
+  return keys;
 }
 
 // 读取照片原始字节（用于邮件内嵌图片）
@@ -61,4 +72,4 @@ async function getPhotoBuffer(ref) {
   return { buffer: result.content, contentType };
 }
 
-module.exports = { uploadPhoto, savePhotoFromDataUrl, signUrl, getPhotoBuffer };
+module.exports = { uploadPhoto, savePhotoFromDataUrl, savePhotosFromDataUrls, signUrl, getPhotoBuffer };

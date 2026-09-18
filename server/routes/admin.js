@@ -1,7 +1,7 @@
 const express = require('express');
 const { pool } = require('../db');
 const { signToken, authMiddleware } = require('../auth');
-const { savePhotoFromDataUrl, signUrl } = require('../oss');
+const { savePhotosFromDataUrls, signUrl } = require('../oss');
 const { logAndSendEmail, getDefaultEmail } = require('../email');
 
 const router = express.Router();
@@ -10,6 +10,26 @@ const router = express.Router();
 const VIEW_TTL = 86400;
 // 导出的照片链接有效期（秒）：7 天
 const EXPORT_TTL = 604800;
+// 缩略图处理参数（OSS x-oss-process）：列表/详情用低清，点击看原图
+const THUMB_PROCESS = 'image/resize,w_400';
+
+// 把行数据转成带签名 URL 的响应：photo_url=封面缩略图，photos=[{key,thumb,full}]
+function withSignedPhotos(row, ttl) {
+  // 兼容旧数据：photos 为空但有 photo_url 时，视作单张
+  const keys = Array.isArray(row.photos) && row.photos.length
+    ? row.photos
+    : row.photo_url ? [row.photo_url] : [];
+  const photos = keys.map((k) => ({
+    key: k,
+    thumb: k ? signUrl(k, ttl, THUMB_PROCESS) : null,
+    full: k ? signUrl(k, ttl) : null,
+  }));
+  return {
+    ...row,
+    photo_url: photos.length ? photos[0].thumb : null,
+    photos,
+  };
+}
 
 // 管理员登录
 router.post('/login', (req, res) => {
@@ -63,10 +83,7 @@ router.get('/leads', authMiddleware, async (req, res) => {
       [...params, pageSize, offset]
     );
 
-    const leads = rows.rows.map((r) => ({
-      ...r,
-      photo_url: r.photo_url ? signUrl(r.photo_url, VIEW_TTL) : null,
-    }));
+    const leads = rows.rows.map((r) => withSignedPhotos(r, VIEW_TTL));
     res.json({ leads, total, page, pageSize });
   } catch (err) {
     console.error('查询失败:', err);
@@ -96,7 +113,9 @@ router.get('/leads/export', authMiddleware, async (req, res) => {
         r.email,
         r.company,
         r.notes,
-        r.photo_url ? signUrl(r.photo_url, EXPORT_TTL) : '',
+        (Array.isArray(r.photos) && r.photos.length
+          ? r.photos.map((k) => signUrl(k, EXPORT_TTL)).join(' ; ')
+          : r.photo_url ? signUrl(r.photo_url, EXPORT_TTL) : ''),
         fmt(r.created_at),
       ]
         .map(escape)
@@ -130,39 +149,36 @@ router.put('/leads/:id', authMiddleware, async (req, res) => {
       [name.trim(), phone || null, whatsapp || null, email || null, company || null, notes || null, req.params.id]
     );
     if (result.rowCount === 0) return res.status(404).json({ error: '记录不存在' });
-    const lead = {
-      ...result.rows[0],
-      photo_url: result.rows[0].photo_url ? signUrl(result.rows[0].photo_url, VIEW_TTL) : null,
-    };
-    res.json({ success: true, lead });
+    res.json({ success: true, lead: withSignedPhotos(result.rows[0], VIEW_TTL) });
   } catch (err) {
     console.error('更新客户失败:', err);
     res.status(500).json({ error: '更新失败' });
   }
 });
 
-// 追加 / 更新客户照片（传 photo 为 null 则清空）
-router.put('/leads/:id/photo', authMiddleware, async (req, res) => {
+// 全量更新客户照片：keys 为保留的现有 key（按顺序），dataUrls 为新上传的照片（追加其后）
+router.put('/leads/:id/photos', authMiddleware, async (req, res) => {
   try {
-    const { photo } = req.body || {};
-    let photoUrl = null;
-    if (photo) {
+    const { keys, dataUrls } = req.body || {};
+    const keep = Array.isArray(keys) ? keys.filter(Boolean) : [];
+    let newKeys = [];
+    if (Array.isArray(dataUrls) && dataUrls.length) {
       try {
-        photoUrl = await savePhotoFromDataUrl(photo);
+        newKeys = await savePhotosFromDataUrls(dataUrls);
       } catch (e) {
         return res.status(400).json({ error: e.message });
       }
     }
+    const photos = [...keep, ...newKeys];
+    if (photos.length > 6) {
+      return res.status(400).json({ error: '最多 6 张照片' });
+    }
     const result = await pool.query(
-      'UPDATE leads SET photo_url = $1 WHERE id = $2 RETURNING *',
-      [photoUrl, req.params.id]
+      'UPDATE leads SET photos = $1::jsonb, photo_url = $2 WHERE id = $3 RETURNING *',
+      [photos.length ? JSON.stringify(photos) : null, photos[0] || null, req.params.id]
     );
     if (result.rowCount === 0) return res.status(404).json({ error: '记录不存在' });
-    const lead = {
-      ...result.rows[0],
-      photo_url: result.rows[0].photo_url ? signUrl(result.rows[0].photo_url, VIEW_TTL) : null,
-    };
-    res.json({ success: true, lead });
+    res.json({ success: true, lead: withSignedPhotos(result.rows[0], VIEW_TTL) });
   } catch (err) {
     console.error('更新照片失败:', err);
     res.status(500).json({ error: '更新失败' });

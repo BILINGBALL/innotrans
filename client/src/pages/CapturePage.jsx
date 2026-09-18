@@ -13,7 +13,7 @@ export default function CapturePage() {
     () => sessionStorage.getItem('innotrans_access') === '1'
   );
   const [form, setForm] = useState(EMPTY);
-  const [photo, setPhoto] = useState(null);
+  const [photos, setPhotos] = useState([]);
   const [sendEmail, setSendEmail] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [success, setSuccess] = useState(false);
@@ -34,7 +34,7 @@ export default function CapturePage() {
 
   const reset = () => {
     setForm(EMPTY);
-    setPhoto(null);
+    setPhotos([]);
     setSuccess(false);
     setError('');
     setSubmitting(false);
@@ -58,7 +58,7 @@ export default function CapturePage() {
         ...form,
         phone: normalizePhone(form.phone),
         whatsapp: normalizePhone(form.whatsapp),
-        photo,
+        photos,
         send_email: sendEmail,
       });
       setSuccess(true);
@@ -152,7 +152,7 @@ export default function CapturePage() {
 
           <section className="form-section">
             <h2 className="section-title">客户照片</h2>
-            <PhotoPicker photo={photo} onCapture={setPhoto} onClear={() => setPhoto(null)} />
+            <PhotoPicker photos={photos} onChange={setPhotos} max={6} />
           </section>
 
           <div className="form-footer">

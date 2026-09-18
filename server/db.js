@@ -41,6 +41,14 @@ async function initDb() {
   // 兼容已存在的旧表：补充 notes 列（无长度限制）
   await pool.query(`ALTER TABLE leads ADD COLUMN IF NOT EXISTS notes TEXT`);
 
+  // 多张客户照片（有序数组，首张为封面）
+  await pool.query(`ALTER TABLE leads ADD COLUMN IF NOT EXISTS photos JSONB`);
+
+  // 迁移旧数据：photos 为空但已有 photo_url 时，用 photo_url 作为唯一一张
+  await pool.query(
+    `UPDATE leads SET photos = jsonb_build_array(photo_url) WHERE photos IS NULL AND photo_url IS NOT NULL`
+  );
+
   await pool.query(`
     CREATE TABLE IF NOT EXISTS email_logs (
       id          SERIAL PRIMARY KEY,

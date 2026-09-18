@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import PasswordGate from '../components/PasswordGate';
 import PhotoPicker from '../components/PhotoPicker';
@@ -18,6 +18,9 @@ export default function CapturePage() {
   const [submitting, setSubmitting] = useState(false);
   const [success, setSuccess] = useState(false);
   const [error, setError] = useState('');
+
+  // 流式语音识别：记录录音开始时的 notes 作为"基底"，识别过程中用 (基底 + 识别文本) 覆盖 notes
+  const voiceBaseRef = useRef('');
 
   if (!authorized) {
     return (
@@ -134,7 +137,15 @@ export default function CapturePage() {
               <span className="field-label">备注 Notes</span>
               <textarea className="input input-textarea" rows={3} placeholder="Notes" value={form.notes} onChange={set('notes')} />
               <VoiceInput
-                onText={(t) => setForm((f) => ({ ...f, notes: (f.notes ? f.notes + ' ' : '') + t }))}
+                onStart={() => {
+                  voiceBaseRef.current = form.notes || '';
+                }}
+                onText={(t) =>
+                  setForm((f) => ({
+                    ...f,
+                    notes: (voiceBaseRef.current ? voiceBaseRef.current + ' ' : '') + t,
+                  }))
+                }
               />
             </label>
           </section>

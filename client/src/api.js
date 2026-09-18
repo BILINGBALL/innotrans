@@ -84,6 +84,16 @@ export function recognizeSpeech(audio) {
   }).then(handle);
 }
 
+// 流式语音识别 WebSocket 地址（开发环境通过 Vite 代理转发到后端 :4000）
+export function getSpeechWsUrl() {
+  if (API_BASE) {
+    // 显式配置了 VITE_API_BASE，按其协议/host 推导 ws/wss
+    const u = new URL(API_BASE);
+    return `${u.protocol === 'https:' ? 'wss' : 'ws'}://${u.host}/ws/speech`;
+  }
+  return `${location.protocol === 'https:' ? 'wss' : 'ws'}://${location.host}/ws/speech`;
+}
+
 // 带鉴权的 CSV 导出，用 Blob 下载
 export async function exportLeads(token) {
   const res = await fetch(`${API_BASE}/api/admin/leads/export`, {

@@ -6,9 +6,9 @@ const router = express.Router();
 
 const APP_ID = process.env.VOLC_ASR_APP_ID;
 const ACCESS_TOKEN = process.env.VOLC_ASR_ACCESS_TOKEN;
-const RESOURCE_ID = process.env.VOLC_ASR_RESOURCE_ID || 'volc.bigasr.sauc';
-const CLUSTER = process.env.VOLC_ASR_CLUSTER || 'volc_auc_common';
-const WS_URL = process.env.VOLC_ASR_ENDPOINT || 'wss://openspeech.bytedance.com/api/v2/asr';
+const RESOURCE_ID = process.env.VOLC_ASR_RESOURCE_ID || 'volc.seedasr.sauc.duration';
+// 豆包流式语音识别模型 2.0：非流式（录完再识别）
+const WS_URL = process.env.VOLC_ASR_ENDPOINT || 'wss://openspeech.bytedance.com/api/v3/sauc/bigmodel_nostream';
 
 // WAV → 原始 PCM（剥离 WAV 头，定位 data chunk）
 function wavToPcm(buf) {
@@ -30,15 +30,20 @@ function frame(header, payload) {
   return Buffer.concat([Buffer.from(header), size, payload]);
 }
 
+// 从识别结果 JSON 中提取文本（result.text 优先，其次 utterances）
 function extractText(json) {
   const r = json && json.result;
   if (!r) return '';
   if (typeof r === 'string') return r;
-  if (Array.isArray(r)) {
-    return r.map((x) => (typeof x === 'string' ? x : (x && x.text) || '')).join('');
-  }
-  if (typeof r === 'object') return r.text || '';
+  if (typeof r.text === 'string') return r.text;
+  const us = r.utterances;
+  if (Array.isArray(us)) return us.map((u) => (u && u.text) || '').join('');
   return '';
+}
+
+// 成功码：0 / 1000 / 3000，其余为业务错误
+function isSuccessCode(code) {
+  return code === 0 || code === 1000 || code === 3000;
 }
 
 function recognizePcm(pcm) {
@@ -73,16 +78,16 @@ function recognizePcm(pcm) {
 
     ws.on('open', () => {
       const cfg = JSON.stringify({
-        app: { appid: APP_ID, token: ACCESS_TOKEN, cluster: CLUSTER },
         user: { uid: 'innotrans' },
-        audio: { format: 'raw', rate: 16000, bits: 16, channel: 1, codec: 'raw' },
+        audio: { format: 'pcm', sample_rate: 16000, channel: 1, bits: 16 },
         request: {
           reqid,
-          sequence: -1,
-          nbest: 1,
-          workflow: 'audio_in,resample,partition,vad,fe,decode,itn,nlu_punctuate',
+          sequence: 1,
+          show_utterances: true,
+          result_type: 'full',
         },
       });
+      // 开始帧（Full Client JSON）
       ws.send(frame([0x11, 0x10, 0x10, 0x00], Buffer.from(cfg, 'utf8')));
 
       // 分块发送 PCM（每块约 100ms = 3200 字节）
@@ -90,7 +95,7 @@ function recognizePcm(pcm) {
       for (let i = 0; i < pcm.length; i += CHUNK) {
         ws.send(frame([0x11, 0x20, 0x00, 0x00], pcm.subarray(i, i + CHUNK)));
       }
-      // 结束空帧
+      // 最后一帧（flags=2 表示音频结束）
       ws.send(frame([0x11, 0x22, 0x00, 0x00], Buffer.alloc(0)));
     });
 
@@ -98,27 +103,34 @@ function recognizePcm(pcm) {
       const buf = Buffer.isBuffer(data) ? data : Buffer.from(data);
       if (buf.length < 12) return;
       const msgType = (buf[1] >> 4) & 0x0f;
+      const flags = buf[1] & 0x0f;
       const raw = buf.subarray(12);
       const s = raw.indexOf(0x7b); // '{'
       if (s === -1) return;
       let json;
       try { json = JSON.parse(raw.subarray(s).toString('utf8')); } catch (e) { return; }
 
-      // 错误帧 / 业务错误
-      if (msgType === 0b1111 || json.code === 400) {
+      // 错误帧（message type 0xF）
+      if (msgType === 0b1111) {
+        return finish(new Error(json.message || '语音识别失败'));
+      }
+      // 业务错误（code 非成功码）
+      if (json.code != null && !isSuccessCode(json.code)) {
         return finish(new Error(json.message || '语音识别失败'));
       }
 
-      // 识别结果帧
+      // 识别结果帧（FullServer）
       if (msgType === 0b1001) {
-        sawResult = true;
         const text = extractText(json);
-        if (text) finalText = text;
-        const result = json.result;
+        if (text) {
+          finalText = text;
+          sawResult = true;
+        }
         const definite =
-          json.type === 'final' ||
-          (Array.isArray(result) && result[0] && result[0].definite) ||
-          (result && !Array.isArray(result) && result.definite);
+          flags === 0x2 ||
+          flags === 0x3 ||
+          (Array.isArray(json.result && json.result.utterances) &&
+            json.result.utterances.some((u) => u && u.definite));
         if (definite) finish(null, finalText);
       }
     });

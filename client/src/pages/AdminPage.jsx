@@ -2,9 +2,11 @@ import { useState, useEffect, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import PhotoPicker from '../components/PhotoPicker';
 import RecycleBin from '../components/RecycleBin';
+import QrPanel from '../components/QrPanel';
 import {
   adminLogin,
   fetchLeads,
+  fetchLead,
   fetchEmailLogs,
   exportLeads,
   deleteLead,
@@ -123,6 +125,16 @@ export default function AdminPage() {
     }
   };
 
+  // 从邮件记录跳转查看客户详情
+  const viewLeadFromEmail = async (leadId) => {
+    try {
+      const { lead } = await fetchLead(token, leadId);
+      setDetail(lead);
+    } catch (err) {
+      setNotice(err.message);
+    }
+  };
+
   useEffect(() => {
     if (!token) return;
     const t = setTimeout(load, 250);
@@ -151,7 +163,7 @@ export default function AdminPage() {
   };
 
   const onDelete = async (id) => {
-    if (!window.confirm('确定将该客户移入回收站？可在回收站恢复。')) return;
+    if (!window.confirm('确定删除该客户？')) return;
     try {
       await deleteLead(token, id);
       setDetail(null);
@@ -285,7 +297,7 @@ export default function AdminPage() {
       <div className="page page-center">
         <div className="gate-card">
           <div className="gate-logo">🔐</div>
-          <h1 className="gate-title">客户历史记录</h1>
+          <h1 className="gate-title">管理后台</h1>
           <p className="gate-subtitle">请输入密码查看</p>
           <form onSubmit={doLogin} className="gate-form">
             <input
@@ -322,8 +334,8 @@ export default function AdminPage() {
         <div className="topbar-brand">
           <span className="topbar-logo">🚆</span>
           <div>
-            <div className="topbar-title">客户历史记录</div>
-            <div className="topbar-sub">InnoTrans Lead Dashboard</div>
+            <div className="topbar-title">管理后台</div>
+            <div className="topbar-sub">InnoTrans Admin</div>
           </div>
         </div>
         <div className="topbar-actions">
@@ -352,6 +364,12 @@ export default function AdminPage() {
             onClick={() => switchTab('emails')}
           >
             邮件记录
+          </button>
+          <button
+            className={`tab ${tab === 'qr' ? 'tab-active' : ''}`}
+            onClick={() => switchTab('qr')}
+          >
+            二维码
           </button>
         </div>
 
@@ -469,7 +487,7 @@ export default function AdminPage() {
                               管理照片
                             </button>
                             <button className="btn btn-danger btn-sm" onClick={() => onDelete(l.id)}>
-                              移入回收站
+                              删除
                             </button>
                           </div>
                         </td>
@@ -533,7 +551,7 @@ export default function AdminPage() {
                         管理照片
                       </button>
                       <button className="btn btn-danger btn-sm" onClick={() => onDelete(l.id)}>
-                        移入回收站
+                        删除
                       </button>
                     </div>
                   </div>
@@ -601,6 +619,7 @@ export default function AdminPage() {
                     <th>状态</th>
                     <th>打开时间</th>
                     <th>备注</th>
+                    <th>操作</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -614,11 +633,20 @@ export default function AdminPage() {
                       </td>
                       <td className="cell-time">{e.opened_at ? fmt(e.opened_at) : '—'}</td>
                       <td className="cell-error">{e.error || ''}</td>
+                      <td>
+                        <button
+                          className="btn btn-outline btn-sm"
+                          disabled={!e.lead_id}
+                          onClick={() => viewLeadFromEmail(e.lead_id)}
+                        >
+                          查看
+                        </button>
+                      </td>
                     </tr>
                   ))}
                   {emails.length === 0 && (
                     <tr>
-                      <td colSpan={6} className="empty">
+                      <td colSpan={7} className="empty">
                         暂无邮件记录
                       </td>
                     </tr>
@@ -639,6 +667,13 @@ export default function AdminPage() {
                   <div className="email-card-right">
                     <EmailBadge status={e.status} />
                     <span className="email-card-time">{fmt(e.created_at)}</span>
+                    <button
+                      className="btn btn-outline btn-sm"
+                      disabled={!e.lead_id}
+                      onClick={() => viewLeadFromEmail(e.lead_id)}
+                    >
+                      查看
+                    </button>
                   </div>
                 </div>
               ))}
@@ -646,6 +681,8 @@ export default function AdminPage() {
             </div>
           </div>
         )}
+
+        {tab === 'qr' && <QrPanel token={token} />}
       </main>
 
       {/* 详情弹窗（可编辑） */}

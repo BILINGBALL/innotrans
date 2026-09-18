@@ -86,6 +86,9 @@ export default function QrDrawer({ open, onClose }) {
     } catch (e) {}
   };
 
+  // 默认只显示可被扫描（未扫描、未使用）的二维码
+  const visibleQrs = qrs.filter((q) => !q.scanned_at && !q.filled_at);
+
   return (
     <>
       {open && <div className="drawer-overlay" onClick={onClose} />}
@@ -116,13 +119,11 @@ export default function QrDrawer({ open, onClose }) {
             {loading && <p className="hint">加载中…</p>}
 
             <div className="qr-list">
-              {qrs.map((q) => (
-                <div className={`qr-card ${q.filled_at ? 'qr-used' : ''}`} key={q.id}>
+              {visibleQrs.map((q) => (
+                <div className="qr-card" key={q.id}>
                   <QrImage value={urlFor(q.token)} />
                   <div className="qr-info">
-                    <div className="qr-status">
-                      {q.filled_at ? '✅ 已使用' : q.scanned_at ? '👁 已扫描' : '⭕ 未扫描'}
-                    </div>
+                    <div className="qr-status">⭕ 未扫描</div>
                     <div className="qr-time">{new Date(q.created_at).toLocaleString('zh-CN', { hour12: false })}</div>
                   </div>
                   <div className="qr-actions">
@@ -133,7 +134,7 @@ export default function QrDrawer({ open, onClose }) {
                   </div>
                 </div>
               ))}
-              {qrs.length === 0 && !loading && <p className="hint">还没有二维码，点上方按钮生成</p>}
+              {visibleQrs.length === 0 && !loading && <p className="hint">还没有二维码，点上方按钮生成</p>}
             </div>
           </div>
         )}

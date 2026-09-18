@@ -33,6 +33,12 @@ export function fetchLeads(token, params = {}) {
   }).then(handle);
 }
 
+export function fetchLead(token, id) {
+  return fetch(`${API_BASE}/api/admin/leads/${id}`, {
+    headers: { Authorization: `Bearer ${token}` },
+  }).then(handle);
+}
+
 export function updateLead(token, id, data) {
   return fetch(`${API_BASE}/api/admin/leads/${id}`, {
     method: 'PUT',

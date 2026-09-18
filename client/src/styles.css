@@ -830,8 +830,8 @@ button.topbar-link {
 }
 
 .qr-list {
-  display: flex;
-  flex-direction: column;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
   gap: 16px;
 }
 
@@ -1274,6 +1274,11 @@ button.topbar-link {
   }
   .topbar-actions {
     margin-left: auto;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+  .topbar-sub {
+    display: none;
   }
   .topbar-link {
     font-size: 13px;

@@ -136,6 +136,18 @@ router.get('/leads/export', authMiddleware, async (req, res) => {
   }
 });
 
+// 获取单个客户详情（邮件记录等跳转查看用，含已软删除）
+router.get('/leads/:id', authMiddleware, async (req, res) => {
+  try {
+    const { rows } = await pool.query('SELECT * FROM leads WHERE id = $1', [req.params.id]);
+    if (rows.length === 0) return res.status(404).json({ error: '记录不存在' });
+    res.json({ lead: withSignedPhotos(rows[0], VIEW_TTL) });
+  } catch (err) {
+    console.error('获取客户失败:', err);
+    res.status(500).json({ error: '获取失败' });
+  }
+});
+
 // 更新客户基本信息
 router.put('/leads/:id', authMiddleware, async (req, res) => {
   try {

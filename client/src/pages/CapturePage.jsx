@@ -86,7 +86,7 @@ export default function CapturePage() {
             二维码
           </button>
           <Link to="/admin" className="topbar-link">
-            历史记录
+            管理后台
           </Link>
         </div>
       </header>

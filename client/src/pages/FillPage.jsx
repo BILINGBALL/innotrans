@@ -1,6 +1,7 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import PhotoPicker from '../components/PhotoPicker';
+import VoiceInput from '../components/VoiceInput';
 import { getQrStatus, scanQr, submitQrLead } from '../api';
 import { normalizePhone } from '../phone';
 
@@ -14,6 +15,9 @@ export default function FillPage() {
   const [submitting, setSubmitting] = useState(false);
   const [success, setSuccess] = useState(false);
   const [error, setError] = useState('');
+
+  // 语音识别：记录录音开始时的 notes 作为"基底"，识别过程中用 (基底 + 识别文本) 覆盖 notes
+  const voiceBaseRef = useRef('');
 
   useEffect(() => {
     (async () => {
@@ -133,6 +137,17 @@ export default function FillPage() {
             <label className="field">
               <span className="field-label">备注 Notes</span>
               <textarea className="input input-textarea" rows={3} placeholder="Notes" value={form.notes} onChange={set('notes')} />
+              <VoiceInput
+                onStart={() => {
+                  voiceBaseRef.current = form.notes || '';
+                }}
+                onText={(t) =>
+                  setForm((f) => ({
+                    ...f,
+                    notes: (voiceBaseRef.current ? voiceBaseRef.current + ' ' : '') + t,
+                  }))
+                }
+              />
             </label>
 
             <div className="form-section">
